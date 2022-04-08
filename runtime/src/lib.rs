@@ -130,6 +130,7 @@ pub fn native_version() -> NativeVersion {
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
+
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub const BlockHashCount: BlockNumber = 2400;
@@ -271,6 +272,28 @@ impl pallet_template::Config for Runtime {
 	type Event = Event;
 }
 
+
+// Declare constants for Nicks pallet
+parameter_types! {
+	pub const NickReservationFee: u128 = 100;
+	pub const MinNickLength: u32 = 0;
+	pub const MaxNickLength: u32 = 40;
+}
+
+impl pallet_nicks::Config for Runtime {
+	// Reservable Currency from Balances pallet
+	type Currency = Balances;
+	type ReservationFee = NickReservationFee;
+	// No action is taken if deposits are lost (slashed)
+	type Slashed = ();
+	// Configure the FRAME System Root origin as the Nick pallet admin
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type MinLength = MinNickLength;
+	type MaxLength = MaxNickLength;
+	type Event = Event;
+
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -284,10 +307,12 @@ construct_runtime!(
 		Aura: pallet_aura,
 		Grandpa: pallet_grandpa,
 		Balances: pallet_balances,
+		Nicks: pallet_nicks,
 		TransactionPayment: pallet_transaction_payment,
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
+
 	}
 );
 
