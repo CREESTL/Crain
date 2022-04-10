@@ -9,9 +9,26 @@ use sc_keystore::LocalKeystore;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_api::ProvideRuntimeApi;
+use super::sha3pow::Sha3Algorithm;
+use sp_timestamp::InherentDataProvider;
+use sp_inherents::{CreateInherentDataProviders};
+use sp_runtime::traits::Block as BlockT;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use std::{sync::Arc, time::Duration};
 
+
+// A builder for inherent data providers
+// pub struct InherentDataProvidersBuilder;
+
+// impl<B: BlockT, E> CreateInherentDataProviders<B, E> for InherentDataProvidersBuilder {
+// 	type InherentDataProviders = InherentDataProvider;
+
+// 	fn create_inherent_data_providers< 'life0, 'async_trait>(& 'life0 self, parent:<B as BlockT>::Hash, extra_args:E) -> core::pin::Pin<Box<dyncore::future::Future<Output=Result<Self::InherentDataProviders,Box<dynstd::error::Error+Send+Sync> > > + core::marker::Send+ 'async_trait> >
+// 	where'life0: 'async_trait,Self: 'async_trait {
+	    
+// 	}
+
+// }
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -117,30 +134,20 @@ pub fn new_partial(
 	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
 
 
-	let import_queue =
-		sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _, _>(ImportQueueParams {
-			block_import: grandpa_block_import.clone(),
-			justification_import: Some(Box::new(grandpa_block_import.clone())),
-			client: client.clone(),
-			create_inherent_data_providers: move |_, ()| async move {
+	// TODO finished here create a block import for Pow from guide
+	let import_queue = sc_consensus_pow::import_queue(
+			// TODO
+			// Replace it with pow_block_import from tutorial?
+			grandpa_block_import.clone(),
+			Some(Box::new(grandpa_block_import.clone())),
+			Sha3Algorithm,
+			move |_, ()| async move {
 				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-				let slot =
-					sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-						*timestamp,
-						slot_duration,
-					);
-
-				Ok((timestamp, slot))
+				Ok(timestamp)
 			},
-			spawner: &task_manager.spawn_essential_handle(),
-			can_author_with: sp_consensus::CanAuthorWithNativeVersion::new(
-				client.executor().clone(),
-			),
-			registry: config.prometheus_registry(),
-			check_for_equivocation: Default::default(),
-			telemetry: telemetry.as_ref().map(|x| x.handle()),
-		})?;
+			&task_manager.spawn_essential_handle(),
+		)?;
 
 	Ok(sc_service::PartialComponents {
 		client,
