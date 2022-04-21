@@ -2,6 +2,7 @@ use parity_scale_codec::{Decode, Encode};
 use sc_consensus_pow::{Error as PowError, PowAlgorithm};
 use sha3::{Digest, Sha3_256};
 use sp_api::ProvideRuntimeApi;
+use sc_client_api::{backend::AuxStore, blockchain::HeaderBackend};
 use sp_consensus_pow::{DifficultyApi, Seal as RawSeal};
 use sp_core::{blake2_256, H256, U256};
 use sp_runtime::generic::BlockId;
@@ -57,7 +58,7 @@ pub struct Sha3Algorithm<C> {
 
 impl<C> Sha3Algorithm<C> {
 	pub fn new(client: Arc<C>) -> Self {
-		Sha3Algorithm { client }
+		Self { client }
 	}
 }
 
@@ -71,9 +72,8 @@ impl<C> Clone for Sha3Algorithm<C> {
 // Implementing PowAlgorithm trait is a must 
 impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for Sha3Algorithm<C> 
 	where
-		C: ProvideRuntimeApi<B>,
+		C: HeaderBackend<B> + AuxStore + ProvideRuntimeApi<B>,
 		C::Api: DifficultyApi<B, U256>,
-
 	{
 
 		type Difficulty = U256;
@@ -81,11 +81,11 @@ impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for Sha3Algorithm<C>
 		// Get the next block's difficulty
 		fn difficulty(&self, parent: B::Hash) -> Result<Self::Difficulty, PowError<B>> {
 			let parent_id = BlockId::<B>::hash(parent);
-			let difficulty = self.
-			client.
-			runtime_api().
-			difficulty(&parent_id).
-			map_err(|e| {
+			let difficulty = self
+			.client
+			.runtime_api()
+			.difficulty(&parent_id)
+			.map_err(|e| {
 				PowError::Environment(format!("Fetching difficulty from runtime failed: {:?}", e))
 			});
 
@@ -131,6 +131,14 @@ impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for Sha3Algorithm<C>
 			}
 
 			Ok(true)
+		}
+
+	fn preliminary_verify(
+			&self,
+			_pre_hash: &<B as BlockT>::Hash,
+			_seal: &RawSeal,
+		) -> Result<Option<bool>, PowError<B>> {
+			Ok(None)
 		}
 
 	}

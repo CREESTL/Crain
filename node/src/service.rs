@@ -8,27 +8,31 @@ use sc_finality_grandpa::SharedVoterState;
 use sc_keystore::LocalKeystore;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
+use sha3::Sha3_224;
 use sp_api::ProvideRuntimeApi;
+use async_trait::async_trait;
 use super::sha3pow::Sha3Algorithm;
 use sp_timestamp::InherentDataProvider;
-use sp_inherents::{CreateInherentDataProviders};
+use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use std::{sync::Arc, time::Duration};
 
 
-// A builder for inherent data providers
-// pub struct InherentDataProvidersBuilder;
+pub struct InherentDataProvidersBuilder;
 
-// impl<B: BlockT, E> CreateInherentDataProviders<B, E> for InherentDataProvidersBuilder {
-// 	type InherentDataProviders = InherentDataProvider;
+#[async_trait]
+impl sp_inherents::CreateInherentDataProviders<Block, ()> for InherentDataProvidersBuilder {
+	type InherentDataProviders = sp_timestamp::InherentDataProvider;
 
-// 	fn create_inherent_data_providers< 'life0, 'async_trait>(& 'life0 self, parent:<B as BlockT>::Hash, extra_args:E) -> core::pin::Pin<Box<dyncore::future::Future<Output=Result<Self::InherentDataProviders,Box<dynstd::error::Error+Send+Sync> > > + core::marker::Send+ 'async_trait> >
-// 	where'life0: 'async_trait,Self: 'async_trait {
-	    
-// 	}
-
-// }
+	async fn create_inherent_data_providers(
+		&self,
+		_parent: <Block as BlockT>::Hash,
+		_extra_args: (),
+	) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>> {
+		Ok(sp_timestamp::InherentDataProvider::from_system_time())
+	}
+}
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -56,7 +60,8 @@ type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
 
-
+/// Returns most parts of a service. Not enough to run a full chain,
+// But enough to perform chain operations like purge-chain
 pub fn new_partial(
 	config: &Configuration,
 ) -> Result<
@@ -66,6 +71,7 @@ pub fn new_partial(
 		FullSelectChain,
 		sc_consensus::DefaultImportQueue<Block, FullClient>,
 		sc_transaction_pool::FullPool<Block, FullClient>,
+		// TODO delete grandpa here?
 		(
 			sc_finality_grandpa::GrandpaBlockImport<
 				FullBackend,
@@ -107,6 +113,7 @@ pub fn new_partial(
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
 		)?;
+
 	let client = Arc::new(client);
 
 	let telemetry = telemetry.map(|(worker, telemetry)| {
@@ -133,20 +140,30 @@ pub fn new_partial(
 
 	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
 
+	let can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
-	// TODO finished here create a block import for Pow from guide
+	let algorithm = Sha3Algorithm::new(client.clone());
+
+	// The same as in Kulupu (checked)
+	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
+		client.clone(),
+		client.clone(),
+		algorithm.clone(),
+		0,
+		select_chain.clone(),
+		InherentDataProvidersBuilder,
+		can_author_with,
+		);
+
+	let boxed_import = Box::new(pow_block_import.clone());
+
 	let import_queue = sc_consensus_pow::import_queue(
-			// TODO
-			// Replace it with pow_block_import from tutorial?
-			grandpa_block_import.clone(),
-			Some(Box::new(grandpa_block_import.clone())),
-			Sha3Algorithm,
-			move |_, ()| async move {
-				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-				Ok(timestamp)
-			},
+			//Box::new(pow_block_import.clone()),
+			boxed_import,
+			None,
+			algorithm.clone(),
 			&task_manager.spawn_essential_handle(),
+			config.prometheus_registry(),
 		)?;
 
 	Ok(sc_service::PartialComponents {
@@ -157,7 +174,7 @@ pub fn new_partial(
 		keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (grandpa_block_import, grandpa_link, telemetry),
+		other: (pow_block_import, telemetry),
 	})
 }
 
