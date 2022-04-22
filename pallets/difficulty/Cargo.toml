@@ -32,5 +32,5 @@ std = [
 	"frame-system/std",
 	"frame-support/std",
 	"pallet-timestamp/std",
-	"kulupu-primitives/std",
+	"crain-primitives/std",
 ]
