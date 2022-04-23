@@ -144,7 +144,6 @@ pub fn new_partial(
 
 	let algorithm = Sha3Algorithm::new(client.clone());
 
-	// The same as in Kulupu (checked)
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
 		client.clone(),
 		client.clone(),
@@ -158,7 +157,6 @@ pub fn new_partial(
 	let boxed_import = Box::new(pow_block_import.clone());
 
 	let import_queue = sc_consensus_pow::import_queue(
-			//Box::new(pow_block_import.clone()),
 			boxed_import,
 			None,
 			algorithm.clone(),
