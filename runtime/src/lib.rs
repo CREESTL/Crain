@@ -442,8 +442,7 @@ impl_runtime_apis! {
 
 	impl sp_consensus_pow::DifficultyApi<Block, crain_primitives::Difficulty> for Runtime {
 		fn difficulty() -> crain_primitives::Difficulty {
-			//difficulty::Module::<Runtime>::difficulty()
-			[256, 256, 256, 256]
+			difficulty::Module::<Runtime>::difficulty()
 		}
 	}
 
