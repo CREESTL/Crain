@@ -20,7 +20,7 @@ pub const WEEK_HEIGHT: u64 = 7 * DAY_HEIGHT;
 /// A year is 524_160 blocks
 pub const YEAR_HEIGHT: u64 = 52 * WEEK_HEIGHT;
 
-/// Number of blocks used to calculate difficulty adjustments
+// /// Number of blocks used to calculate difficulty adjustments
 pub const DIFFICULTY_ADJUST_WINDOW: u64 = HOUR_HEIGHT;
 /// Clamp factor to use for difficulty adjustment
 /// Limit value to within this factor of goal
