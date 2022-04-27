@@ -27,8 +27,6 @@ sc-telemetry = { version = "4.0.0-dev", git = "https://github.com/paritytech/sub
 sc-keystore = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
 sc-transaction-pool = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
 sc-transaction-pool-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
-sc-consensus-aura = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
-sp-consensus-aura = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
 sc-consensus-pow = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
 sp-consensus-pow = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
 sp-consensus = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
@@ -65,5 +63,8 @@ node-template-runtime = { version = "4.0.0-dev", path = "../runtime" }
 substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
 
 [features]
-default = []
+default = ["std"]
+std = [
+	"parity-scale-codec/std",
+]
 runtime-benchmarks = ["node-template-runtime/runtime-benchmarks"]
