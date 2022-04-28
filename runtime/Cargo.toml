@@ -54,6 +54,9 @@ pallet-template = { version = "4.0.0-dev", default-features = false, path = "../
 # Primitive types and constants for Crain
 crain-primitives = { path = "../primitives", default-features = false }
 
+# Custom pallet for difficulty 
+pallet-difficulty = { path = "../pallets/difficulty", default-features = false }
+
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
 
@@ -87,7 +90,9 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"crain-primitives/std",
+	"pallet-difficulty/std",
 ]
+
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",

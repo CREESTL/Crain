@@ -33,6 +33,7 @@ pub use frame_support::{
 	},
 	StorageValue,
 };
+pub use pallet_difficulty::*;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::CurrencyAdapter;
@@ -221,7 +222,8 @@ parameter_types! {
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
-	type OnTimestampSet = Aura;
+	// Difficulty trait is called each time a timestamp is set in runtime
+	type OnTimestampSet = Difficulty;
 	type MinimumPeriod = MinimumPeriod;
 	type WeightInfo = ();
 }
@@ -263,6 +265,12 @@ impl pallet_template::Config for Runtime {
 }
 
 
+/// Configure Difficulty pallet for Runtime
+impl pallet_difficulty::Config for Runtime {
+	// TODO not sure about that
+	type TargetBlockTime = pallet_timestamp::pallet::Moment;
+}
+
 // Declare constants for Nicks pallet
 parameter_types! {
 	pub const NickReservationFee: u128 = 100;
@@ -301,6 +309,8 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
+		// Include Difficulty pallet into runtime
+		Difficulty: pallet_difficulty::{Pallet, Call, Storage, Config} = 19
 
 	}
 );
