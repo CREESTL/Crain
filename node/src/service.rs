@@ -169,6 +169,7 @@ pub fn new_partial(
 		keystore_container,
 		select_chain,
 		transaction_pool,
+		// TODO delete telemetry?
 		other: (pow_block_import, telemetry),
 	})
 }
@@ -184,7 +185,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		mut keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (block_import, grandpa_link, mut telemetry),
+		other: (pow_block_import, grandpa_link, mut telemetry),
 	} = new_partial(&config)?;
 
 
@@ -318,6 +319,102 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		);
 	}
 
+	let (worker, worker_task) = sc_consensus_pow::start_mining_worker(
+		Box::new(pow_block_import.clone()),
+		client.clone(),
+		select_chain.clone(),
+		algorithm.clone(),
+		proposer,
+		network.clone(),
+		None,
+		Some(author.encode()),
+		// TODO might be wrong parameter
+		InherentDataProvidersBuilder,
+		Duration::new(10, 0),
+		Duration::new(10, 0),
+		sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
+	);
+
+	task_manager
+		.spawn_essential_handle()
+		.spawn_blocking("pow", worker_task);
+
+
 	network_starter.start_network();
+	Ok(task_manager)
+}
+
+// TODO fix it, NO GRANDPA HERE
+/// Builds a new service for a light client.
+pub fn new_light(config: Configuration) -> Result<TaskManager, ServiceError> {
+	let (client, backend, keystore_container, mut task_manager, on_demand) =
+		sc_service::new_light_parts::<Block, RuntimeApi, Executor>(&config)?;
+
+	let transaction_pool = Arc::new(sc_transaction_pool::BasicPool::new_light(
+		config.transaction_pool.clone(),
+		config.prometheus_registry(),
+		task_manager.spawn_handle(),
+		client.clone(),
+		on_demand.clone(),
+	));
+
+	let select_chain = sc_consensus::LongestChain::new(backend.clone());
+	let inherent_data_providers = build_inherent_data_providers()?;
+	// FixMe #375
+	let _can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
+
+	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
+		client.clone(),
+		client.clone(),
+		sha3pow::MinimalSha3Algorithm,
+		0, // check inherents starting at block 0
+		select_chain,
+		inherent_data_providers.clone(),
+		// FixMe #375
+		sp_consensus::AlwaysCanAuthor,
+	);
+
+	let import_queue = sc_consensus_pow::import_queue(
+		Box::new(pow_block_import),
+		None,
+		sha3pow::MinimalSha3Algorithm,
+		inherent_data_providers,
+		&task_manager.spawn_handle(),
+		config.prometheus_registry(),
+	)?;
+
+	let warp_sync = Arc::new(sc_finality_grandpa::warp_proof::NetworkProvider::new(
+		backend.clone(),
+		grandpa_link.shared_authority_set().clone(),
+		Vec::default(),
+	));
+
+
+	let (network, network_status_sinks, system_rpc_tx, network_starter) =
+		sc_service::build_network(sc_service::BuildNetworkParams {
+			config: &config,
+			client: client.clone(),
+			transaction_pool: transaction_pool.clone(),
+			spawn_handle: task_manager.spawn_handle(),
+			import_queue,
+			block_announce_validator_builder: None,
+			warp_sync
+		})?;
+
+	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+		network: network.clone(),
+		client: client.clone(),
+		keystore: keystore_container.sync_keystore(),
+		task_manager: &mut task_manager,
+		transaction_pool: transaction_pool.clone(),
+		rpc_extensions_builder,
+		backend,
+		system_rpc_tx,
+		config,
+		telemetry: telemetry.as_mut(),
+	})?;
+
+	network_starter.start_network();
+
 	Ok(task_manager)
 }

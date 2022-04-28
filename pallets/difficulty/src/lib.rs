@@ -27,7 +27,7 @@ pub fn damp(actual: u128, goal: u128, damp_factor: u128) -> u128 {
 	(actual + (damp_factor - 1) * goal) / damp_factor
 }
 
-/// limit value to be within some factor from a goal
+/// Limit value to be within some factor from a goal
 pub fn clamp(actual: u128, goal: u128, clamp_factor: u128) -> u128 {
 	max(goal / clamp_factor, min(actual, goal * clamp_factor))
 }
@@ -40,9 +40,8 @@ pub trait Config: pallet_timestamp::Config {
 decl_storage! {
 	trait Store for Module<T: Config> as Difficulty {
 		/// Past difficulties and timestamps, from earliest to latest.
-		PastDifficultiesAndTimestamps:
-		[Option<DifficultyAndTimestamp<T::Moment>>; 60]
-			= [None; DIFFICULTY_ADJUST_WINDOW as usize];
+		// TODO bug in this line?
+		PastDifficultiesAndTimestamps: [Option<DifficultyAndTimestamp<T::Moment>>; 60] = [None; DIFFICULTY_ADJUST_WINDOW as usize];
 		/// Current difficulty.
 		pub CurrentDifficulty get(fn difficulty) build(|config: &GenesisConfig| {
 			config.initial_difficulty
