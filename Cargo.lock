@@ -864,7 +864,6 @@ dependencies = [
 name = "crain-runtime"
 version = "4.0.0-dev"
 dependencies = [
- "crain-primitives",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -874,7 +873,6 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "pallet-balances",
- "pallet-difficulty",
  "pallet-grandpa",
  "pallet-nicks",
  "pallet-randomness-collective-flip",

@@ -33,7 +33,7 @@ pub use frame_support::{
 	},
 	StorageValue,
 };
-pub use pallet_difficulty::*;
+//pub use pallet_difficulty::*;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::CurrencyAdapter;
@@ -219,14 +219,14 @@ parameter_types! {
 	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 }
 
-impl pallet_timestamp::Config for Runtime {
-	/// A timestamp: milliseconds since the unix epoch.
-	type Moment = u64;
-	// Difficulty trait is called each time a timestamp is set in runtime
-	type OnTimestampSet = Difficulty;
-	type MinimumPeriod = MinimumPeriod;
-	type WeightInfo = ();
-}
+// impl pallet_timestamp::Config for Runtime {
+// 	/// A timestamp: milliseconds since the unix epoch.
+// 	type Moment = u64;
+// 	// Difficulty trait is called each time a timestamp is set in runtime
+// 	type OnTimestampSet = Difficulty;
+// 	type MinimumPeriod = MinimumPeriod;
+// 	type WeightInfo = ();
+// }
 
 impl pallet_balances::Config for Runtime {
 	type MaxLocks = ConstU32<50>;
@@ -266,10 +266,10 @@ impl pallet_template::Config for Runtime {
 
 
 /// Configure Difficulty pallet for Runtime
-impl pallet_difficulty::Config for Runtime {
-	// TODO not sure about that
-	type TargetBlockTime = pallet_timestamp::pallet::Moment;
-}
+// impl pallet_difficulty::Config for Runtime {
+// 	// TODO not sure about that
+// 	type TargetBlockTime = pallet_timestamp::pallet::Moment;
+// }
 
 // Declare constants for Nicks pallet
 parameter_types! {
@@ -301,7 +301,7 @@ construct_runtime!(
 	{
 		System: frame_system,
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip,
-		Timestamp: pallet_timestamp,
+		//Timestamp: pallet_timestamp,
 		Grandpa: pallet_grandpa,
 		Balances: pallet_balances,
 		Nicks: pallet_nicks,
@@ -310,7 +310,7 @@ construct_runtime!(
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
 		// Include Difficulty pallet into runtime
-		Difficulty: pallet_difficulty::{Pallet, Call, Storage, Config} = 19
+		//Difficulty: pallet_difficulty::{Pallet, Call, Storage, Config} = 19
 
 	}
 );
@@ -429,9 +429,15 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_consensus_pow::DifficultyApi<Block, crain_primitives::Difficulty> for Runtime {
-		fn difficulty() -> crain_primitives::Difficulty {
-			difficulty::Module::<Runtime>::difficulty()
+	// impl sp_consensus_pow::DifficultyApi<Block, crain_primitives::Difficulty> for Runtime {
+	// 	fn difficulty() -> crain_primitives::Difficulty {
+	// 		difficulty::Module::<Runtime>::difficulty()
+	// 	}
+	// }
+
+	impl sp_consensus_pow::DifficultyApi<Block, sp_core::U256> for Runtime {
+		fn difficulty() -> sp_core::U256 {
+			sp_core::U256([1, 2, 3, 4])
 		}
 	}
 
