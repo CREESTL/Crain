@@ -1,6 +1,6 @@
-//! Difficulty adjustment module.
-
 #![cfg_attr(not(feature = "std"), no_std)]
+
+//! Difficulty adjustment module.
 
 use parity_scale_codec::{Decode, Encode};
 use frame_support::{

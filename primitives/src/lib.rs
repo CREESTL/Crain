@@ -1,6 +1,6 @@
-//! Crain primitive constants and types.
-
 #![cfg_attr(not(feature = "std"), no_std)]
+
+//! Crain primitive constants and types.
 
 pub type Difficulty = sp_core::U256;
 
