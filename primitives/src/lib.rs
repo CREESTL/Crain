@@ -2,8 +2,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_api::decl_runtime_apis;
-
 pub type Difficulty = sp_core::U256;
 
 /// Block interval, in seconds, the network will tune its next_target for.
@@ -50,9 +48,3 @@ pub const fn deposit(items: u32, bytes: u32) -> u128 {
 pub const HOURS: u32 = 60;
 /// Block number of one day.
 pub const DAYS: u32 = 24 * HOURS;
-
-decl_runtime_apis! {
-	pub trait AlgorithmApi {
-		fn identifier() -> [u8; 8];
-	}
-}
