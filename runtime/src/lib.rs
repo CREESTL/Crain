@@ -429,17 +429,12 @@ impl_runtime_apis! {
 		}
 	}
 
-	// impl sp_consensus_pow::DifficultyApi<Block, crain_primitives::Difficulty> for Runtime {
-	// 	fn difficulty() -> crain_primitives::Difficulty {
-	// 		difficulty::Module::<Runtime>::difficulty()
-	// 	}
-	// }
-
-	impl sp_consensus_pow::DifficultyApi<Block, sp_core::U256> for Runtime {
-		fn difficulty() -> sp_core::U256 {
-			sp_core::U256([1, 2, 3, 4])
+	impl sp_consensus_pow::DifficultyApi<Block, crain_primitives::Difficulty> for Runtime {
+		fn difficulty() -> crain_primitives::Difficulty {
+			difficulty::Module::<Runtime>::difficulty()
 		}
 	}
+
 
 	impl fg_primitives::GrandpaApi<Block> for Runtime {
 		fn grandpa_authorities() -> GrandpaAuthorityList {
