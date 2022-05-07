@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
@@ -9,6 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
+use crain_primitives::BLOCK_TIME;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -33,7 +35,8 @@ pub use frame_support::{
 	},
 	StorageValue,
 };
-//pub use pallet_difficulty::*;
+
+pub use pallet_difficulty::*;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::CurrencyAdapter;
@@ -105,19 +108,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	state_version: 1,
 };
 
-/// This determines the average expected block time that we are targeting.
-///
-/// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
-
-// NOTE: Currently it is not possible to change the slot duration after the chain has started.
-//       Attempting to do so will brick block production.
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-
-// Time is measured by number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -215,19 +205,6 @@ impl pallet_grandpa::Config for Runtime {
 	type MaxAuthorities = ConstU32<32>;
 }
 
-parameter_types! {
-	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
-}
-
-// impl pallet_timestamp::Config for Runtime {
-// 	/// A timestamp: milliseconds since the unix epoch.
-// 	type Moment = u64;
-// 	// Difficulty trait is called each time a timestamp is set in runtime
-// 	type OnTimestampSet = Difficulty;
-// 	type MinimumPeriod = MinimumPeriod;
-// 	type WeightInfo = ();
-// }
-
 impl pallet_balances::Config for Runtime {
 	type MaxLocks = ConstU32<50>;
 	type MaxReserves = ();
@@ -265,11 +242,29 @@ impl pallet_template::Config for Runtime {
 }
 
 
+parameter_types! {
+	pub const MinimumPeriod: u64 = 1000;
+}
+
+impl pallet_timestamp::Config for Runtime {
+	/// A timestamp: milliseconds since the unix epoch.
+	type Moment = u64;
+	// Difficulty trait is called each time a timestamp is set in runtime
+	type OnTimestampSet = Difficulty;
+	type MinimumPeriod = MinimumPeriod;
+	type WeightInfo = ();
+}
+
+
+parameter_types! {
+	pub const TargetBlockTime: u64 = BLOCK_TIME;
+}
+
 /// Configure Difficulty pallet for Runtime
-// impl pallet_difficulty::Config for Runtime {
-// 	// TODO not sure about that
-// 	type TargetBlockTime = pallet_timestamp::pallet::Moment;
-// }
+impl pallet_difficulty::Config for Runtime {
+	// TODO not sure about that
+	type TargetBlockTime = TargetBlockTime;
+}
 
 // Declare constants for Nicks pallet
 parameter_types! {
@@ -301,7 +296,7 @@ construct_runtime!(
 	{
 		System: frame_system,
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip,
-		//Timestamp: pallet_timestamp,
+		Timestamp: pallet_timestamp,
 		Grandpa: pallet_grandpa,
 		Balances: pallet_balances,
 		Nicks: pallet_nicks,
@@ -310,7 +305,7 @@ construct_runtime!(
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
 		// Include Difficulty pallet into runtime
-		//Difficulty: pallet_difficulty::{Pallet, Call, Storage, Config} = 19
+		Difficulty: pallet_difficulty::{Pallet, Call, Storage, Config} = 19
 
 	}
 );
@@ -431,7 +426,8 @@ impl_runtime_apis! {
 
 	impl sp_consensus_pow::DifficultyApi<Block, crain_primitives::Difficulty> for Runtime {
 		fn difficulty() -> crain_primitives::Difficulty {
-			difficulty::Module::<Runtime>::difficulty()
+			// TODO bug here, but module is at line 55 in difficulty decl module!
+			pallet_difficulty::Module::<Runtime>::difficulty()
 		}
 	}
 
