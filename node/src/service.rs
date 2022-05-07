@@ -1,6 +1,6 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use node_template_runtime::{self, opaque::Block, RuntimeApi};
+use crain_runtime::{self, opaque::Block, RuntimeApi};
 use sc_client_api::{BlockBackend, ExecutorProvider};
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_finality_grandpa::SharedVoterState;
@@ -44,11 +44,11 @@ impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
 	type ExtendHostFunctions = ();
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		node_template_runtime::api::dispatch(method, data)
+		crain_runtime::api::dispatch(method, data)
 	}
 
 	fn native_version() -> sc_executor::NativeVersion {
-		node_template_runtime::native_version()
+		crain_runtime::native_version()
 	}
 }
 
@@ -164,10 +164,11 @@ pub fn new_partial(
 	Ok(sc_service::PartialComponents {
 		client,
 		backend,
+		// TODO more arguments that needed?
 		task_manager,
-		import_queue,
 		keystore_container,
 		select_chain,
+		import_queue,
 		transaction_pool,
 		// TODO delete telemetry?
 		other: (pow_block_import, telemetry),
@@ -366,7 +367,7 @@ pub fn new_light(config: Configuration) -> Result<TaskManager, ServiceError> {
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
 		client.clone(),
 		client.clone(),
-		sha3pow::MinimalSha3Algorithm,
+		Sha3Algorithm,
 		0, // check inherents starting at block 0
 		select_chain,
 		inherent_data_providers.clone(),
@@ -377,7 +378,7 @@ pub fn new_light(config: Configuration) -> Result<TaskManager, ServiceError> {
 	let import_queue = sc_consensus_pow::import_queue(
 		Box::new(pow_block_import),
 		None,
-		sha3pow::MinimalSha3Algorithm,
+		Sha3Algorithm,
 		inherent_data_providers,
 		&task_manager.spawn_handle(),
 		config.prometheus_registry(),
