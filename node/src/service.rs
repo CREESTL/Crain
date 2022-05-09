@@ -346,76 +346,109 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 }
 
 // TODO fix it, NO GRANDPA HERE
-/// Builds a new service for a light client.
-pub fn new_light(config: Configuration) -> Result<TaskManager, ServiceError> {
-	let (client, backend, keystore_container, mut task_manager, on_demand) =
-		sc_service::new_light_parts::<Block, RuntimeApi, Executor>(&config)?;
+// TODO Cloned fromn Kulupu
+// Builds a new service for a light client.
+// pub fn new_light(
+// 	config: Configuration,
+// 	check_inherents_after: u32,
+// 	enable_weak_subjectivity: bool,
+// ) -> Result<TaskManager, ServiceError> {
+// 	let telemetry = config
+// 		.telemetry_endpoints
+// 		.clone()
+// 		.filter(|x| !x.is_empty())
+// 		.map(|endpoints| -> Result<_, sc_telemetry::Error> {
+// 			let worker = TelemetryWorker::new(16)?;
+// 			let telemetry = worker.handle().new_telemetry(endpoints);
+// 			Ok((worker, telemetry))
+// 		})
+// 		.transpose()?;
 
-	let transaction_pool = Arc::new(sc_transaction_pool::BasicPool::new_light(
-		config.transaction_pool.clone(),
-		config.prometheus_registry(),
-		task_manager.spawn_handle(),
-		client.clone(),
-		on_demand.clone(),
-	));
+// 	let executor = NativeElseWasmExecutor::<ExecutorDispatch>::new(
+// 		config.wasm_method,
+// 		config.default_heap_pages,
+// 		config.max_runtime_instances,
+// 	);
 
-	let select_chain = sc_consensus::LongestChain::new(backend.clone());
-	let inherent_data_providers = build_inherent_data_providers()?;
-	// FixMe #375
-	let _can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
+// 	let (client, backend, keystore_container, mut task_manager, on_demand) =
+// 		sc_service::new_light_parts::<Block, RuntimeApi, _>(
+// 			&config,
+// 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+// 			executor,
+// 		)?;
 
-	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
-		client.clone(),
-		client.clone(),
-		Sha3Algorithm,
-		0, // check inherents starting at block 0
-		select_chain,
-		inherent_data_providers.clone(),
-		// FixMe #375
-		sp_consensus::AlwaysCanAuthor,
-	);
+// 	let mut telemetry = telemetry.map(|(worker, telemetry)| {
+// 		task_manager.spawn_handle().spawn("telemetry", worker.run());
+// 		telemetry
+// 	});
 
-	let import_queue = sc_consensus_pow::import_queue(
-		Box::new(pow_block_import),
-		None,
-		Sha3Algorithm,
-		inherent_data_providers,
-		&task_manager.spawn_handle(),
-		config.prometheus_registry(),
-	)?;
+// 	let transaction_pool = Arc::new(sc_transaction_pool::BasicPool::new_light(
+// 		config.transaction_pool.clone(),
+// 		config.prometheus_registry(),
+// 		task_manager.spawn_essential_handle(),
+// 		client.clone(),
+// 		on_demand.clone(),
+// 	));
 
-	let warp_sync = Arc::new(sc_finality_grandpa::warp_proof::NetworkProvider::new(
-		backend.clone(),
-		grandpa_link.shared_authority_set().clone(),
-		Vec::default(),
-	));
+// 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
+
+// 	let algorithm = Sha3Algorithm::new(client.clone());
+
+// 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
+// 	client.clone(),
+// 	client.clone(),
+// 	algorithm.clone(),
+// 	0,
+// 	select_chain.clone(),
+// 	InherentDataProvidersBuilder,
+// 	sp_consensus::NeverCanAuthor
+// 	);
+
+// 	let boxed_import = Box::new(pow_block_import.clone());
+
+// 	let import_queue = sc_consensus_pow::import_queue(
+// 			boxed_import,
+// 			None,
+// 			algorithm.clone(),
+// 			&task_manager.spawn_essential_handle(),
+// 			config.prometheus_registry(),
+// 		)?;
+
+// 	let (network, system_rpc_tx, network_starter) =
+// 		sc_service::build_network(sc_service::BuildNetworkParams {
+// 			config: &config,
+// 			client: client.clone(),
+// 			transaction_pool: transaction_pool.clone(),
+// 			spawn_handle: task_manager.spawn_handle(),
+// 			import_queue,
+// 			block_announce_validator_builder: None,
+// 			warp_sync: None,
+// 		})?;
 
 
-	let (network, network_status_sinks, system_rpc_tx, network_starter) =
-		sc_service::build_network(sc_service::BuildNetworkParams {
-			config: &config,
-			client: client.clone(),
-			transaction_pool: transaction_pool.clone(),
-			spawn_handle: task_manager.spawn_handle(),
-			import_queue,
-			block_announce_validator_builder: None,
-			warp_sync
-		})?;
+// 	if config.offchain_worker.enabled {
+// 		sc_service::build_offchain_workers(
+// 			&config,
+// 			task_manager.spawn_handle(),
+// 			client.clone(),
+// 			network.clone(),
+// 		);
+// 	}
 
-	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-		network: network.clone(),
-		client: client.clone(),
-		keystore: keystore_container.sync_keystore(),
-		task_manager: &mut task_manager,
-		transaction_pool: transaction_pool.clone(),
-		rpc_extensions_builder,
-		backend,
-		system_rpc_tx,
-		config,
-		telemetry: telemetry.as_mut(),
-	})?;
+// 	sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+// 		network: network.clone(),
+// 		client: client.clone(),
+// 		keystore: keystore_container.sync_keystore(),
+// 		task_manager: &mut task_manager,
+// 		transaction_pool: transaction_pool.clone(),
+// 		rpc_extensions_builder: Box::new(|_, _| Ok(())),
+// 		backend, 
+// 		system_rpc_tx,
+// 		config,
+// 		telemetry: telemetry.as_mut(),
+// 	})?;
 
-	network_starter.start_network();
+// 	network_starter.start_network();
 
-	Ok(task_manager)
-}
+// 	Ok(task_manager)
+// }
