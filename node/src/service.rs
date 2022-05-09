@@ -9,10 +9,11 @@ use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sha3::Sha3_224;
 use log::*;
+use sp_core::H256;
 use std::path::PathBuf;
 use sp_api::ProvideRuntimeApi;
 use async_trait::async_trait;
-use super::sha3pow::Sha3Algorithm;
+use crain_pow::*;
 use sp_timestamp::InherentDataProvider;
 use sp_core::{crypto::{Ss58AddressFormat, Ss58Codec, UncheckedFrom}};
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
@@ -184,15 +185,15 @@ pub fn decode_author(
 	author: Option<&str>,
 	keystore: SyncCryptoStorePtr,
 	keystore_path: Option<PathBuf>,
-) -> Result<kulupu_pow::app::Public, String> {
+) -> Result<crain_pow::app::Public, String> {
 	if let Some(author) = author {
 		if author.starts_with("0x") {
-			Ok(kulupu_pow::app::Public::unchecked_from(
+			Ok(crain_pow::app::Public::unchecked_from(
 				H256::from_str(&author[2..]).map_err(|_| "Invalid author account".to_string())?,
 			)
 			.into())
 		} else {
-			let (address, version) = kulupu_pow::app::Public::from_ss58check_with_version(author)
+			let (address, version) = crain_pow::app::Public::from_ss58check_with_version(author)
 				.map_err(|_| "Invalid author address".to_string())?;
 			if version != Ss58AddressFormat::KulupuAccount {
 				return Err("Invalid author version".to_string());
@@ -202,11 +203,11 @@ pub fn decode_author(
 	} else {
 		info!("The node is configured for mining, but no author key is provided.");
 
-		let (pair, phrase, _) = kulupu_pow::app::Pair::generate_with_phrase(None);
+		let (pair, phrase, _) = crain_pow::app::Pair::generate_with_phrase(None);
 
 		SyncCryptoStore::insert_unknown(
 			&*keystore.as_ref(),
-			kulupu_pow::app::ID,
+			crain_pow::app::ID,
 			&phrase,
 			pair.public().as_ref(),
 		)
