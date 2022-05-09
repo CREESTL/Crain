@@ -9,6 +9,15 @@ use sp_runtime::generic::BlockId;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
 
+// Exported module of the whole app
+pub mod app {
+	use sp_application_crypto::{app_crypto, sr25519};
+	use sp_core::crypto::KeyTypeId;
+
+	pub const ID: KeyTypeId = KeyTypeId(*b"crn1");
+	app_crypto!(sr25519, ID);
+}
+
 
 // Check if the given hash satisfies the given difficulty
 // Multiply both together. If the product overflows the bounds of U256 then

@@ -3,6 +3,7 @@ members = [
     "node",
     "pallets/template",
     "pallets/difficulty",
+    "pow",
     "runtime",
 ]
 [profile.release]
