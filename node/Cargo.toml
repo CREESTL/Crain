@@ -40,6 +40,7 @@ sp-inherents = { version = "4.0.0-dev", git = "https://github.com/paritytech/sub
 sha3 = { version = "0.10.0", default-features = false }
 parity-scale-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 async-trait = { version = "0.1" }
+log = "0.4"
 
 # These dependencies are used for the node template's RPCs
 jsonrpc-core = "18.0.0"

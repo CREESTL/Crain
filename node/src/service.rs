@@ -8,10 +8,14 @@ use sc_keystore::LocalKeystore;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sha3::Sha3_224;
+use log::*;
+use std::path::PathBuf;
 use sp_api::ProvideRuntimeApi;
 use async_trait::async_trait;
 use super::sha3pow::Sha3Algorithm;
 use sp_timestamp::InherentDataProvider;
+use sp_core::{crypto::{Ss58AddressFormat, Ss58Codec, UncheckedFrom}};
+use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
 use std::{sync::Arc, time::Duration};
@@ -175,9 +179,57 @@ pub fn new_partial(
 	})
 }
 
+// TODO copied from Kulupu service.rs
+pub fn decode_author(
+	author: Option<&str>,
+	keystore: SyncCryptoStorePtr,
+	keystore_path: Option<PathBuf>,
+) -> Result<kulupu_pow::app::Public, String> {
+	if let Some(author) = author {
+		if author.starts_with("0x") {
+			Ok(kulupu_pow::app::Public::unchecked_from(
+				H256::from_str(&author[2..]).map_err(|_| "Invalid author account".to_string())?,
+			)
+			.into())
+		} else {
+			let (address, version) = kulupu_pow::app::Public::from_ss58check_with_version(author)
+				.map_err(|_| "Invalid author address".to_string())?;
+			if version != Ss58AddressFormat::KulupuAccount {
+				return Err("Invalid author version".to_string());
+			}
+			Ok(address)
+		}
+	} else {
+		info!("The node is configured for mining, but no author key is provided.");
+
+		let (pair, phrase, _) = kulupu_pow::app::Pair::generate_with_phrase(None);
+
+		SyncCryptoStore::insert_unknown(
+			&*keystore.as_ref(),
+			kulupu_pow::app::ID,
+			&phrase,
+			pair.public().as_ref(),
+		)
+		.map_err(|e| format!("Registering mining key failed: {:?}", e))?;
+
+		info!(
+			"Generated a mining key with address: {}",
+			pair.public()
+				.to_ss58check_with_version(Ss58AddressFormat::KulupuAccount)
+		);
+
+		match keystore_path {
+			Some(path) => info!("You can go to {:?} to find the seed phrase of the mining key.", path),
+			None => warn!("Keystore is not local. This means that your mining key will be lost when exiting the program. This should only happen if you are in dev mode."),
+		}
+
+		Ok(pair.public())
+	}
+}
 
 /// Builds a new service for a full client.
-pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> {
+// TODO delete author from parameters?
+pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -258,6 +310,11 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	})?;
 
 	if role.is_authority() {
+
+		let keystore_path = config.keystore.path().map(|p| p.to_owned());
+		let algorithm = Sha3Algorithm::new(client.clone());
+		let author = decode_author(author, keystore_container.sync_keystore(), keystore_path)?;
+		
 		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
@@ -270,17 +327,32 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
 
+		let (worker, worker_task) = sc_consensus_pow::start_mining_worker(
+			Box::new(pow_block_import.clone()),
+			client.clone(),
+			select_chain.clone(),
+			algorithm.clone(),
+			proposer_factory,
+			network.clone(),
+			None,
+			Some(author.encode()), // Include authoreship into block
+			// TODO might be wrong parameter
+			InherentDataProvidersBuilder,
+			Duration::new(10, 0),
+			Duration::new(10, 0),
+			sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
+		);
+
 		// the AURA authoring task is considered essential, i.e. if it
 		// fails we take down the service with it.
 		task_manager
 			.spawn_essential_handle()
-			.spawn_blocking("pow", Some("block-authoring"), pow);
+			.spawn_blocking("pow", Some("block-authoring"), worker_task);
 	}
 
 	// if the node isn't actively participating in consensus then it doesn't
 	// need a keystore, regardless of which protocol we use below.
-	let keystore =
-		if role.is_authority() { Some(keystore_container.sync_keystore()) } else { None };
+	let keystore = if role.is_authority() { Some(keystore_container.sync_keystore()) } else { None };
 
 	let grandpa_config = sc_finality_grandpa::Config {
 		// FIXME #1578 make this available through chainspec
@@ -319,27 +391,6 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			sc_finality_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
 	}
-
-	let (worker, worker_task) = sc_consensus_pow::start_mining_worker(
-		Box::new(pow_block_import.clone()),
-		client.clone(),
-		select_chain.clone(),
-		algorithm.clone(),
-		proposer,
-		network.clone(),
-		None,
-		Some(author.encode()),
-		// TODO might be wrong parameter
-		InherentDataProvidersBuilder,
-		Duration::new(10, 0),
-		Duration::new(10, 0),
-		sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
-	);
-
-	task_manager
-		.spawn_essential_handle()
-		.spawn_blocking("pow", worker_task);
-
 
 	network_starter.start_network();
 	Ok(task_manager)
