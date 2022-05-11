@@ -1,5 +1,5 @@
 use crain_runtime::{
-	AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
+	AccountId, BalancesConfig, DifficultyConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
 	SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
@@ -149,5 +149,7 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
+		// TODO put this U256 into arguments
+		difficulty: DifficultyConfig { initial_difficulty: sp_core::U256 },
 	}
 }
