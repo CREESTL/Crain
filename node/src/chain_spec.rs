@@ -36,6 +36,39 @@ pub fn authority_keys_from_seed(s: &str) -> GrandpaId {
 	get_from_seed::<GrandpaId>(s)
 }
 
+/// Configure initial storage state for FRAME modules.
+/// Used a genesis constructor in the functions below
+fn testnet_genesis(
+	wasm_binary: &[u8],
+	initial_authorities: Vec<(GrandpaId)>,
+	root_key: AccountId,
+	endowed_accounts: Vec<AccountId>,
+	_enable_println: bool,
+) -> GenesisConfig {
+	GenesisConfig {
+		system: SystemConfig {
+			// Add Wasm runtime to storage.
+			code: wasm_binary.to_vec(),
+		},
+		balances: BalancesConfig {
+			// Configure endowed accounts with initial balance of 1 << 60.
+			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
+		},
+		grandpa: GrandpaConfig {
+			authorities: initial_authorities.iter().map(|x| (x.clone(), 1)).collect(),
+		},
+		sudo: SudoConfig {
+			// Assign network admin rights.
+			key: Some(root_key),
+		},
+		transaction_payment: Default::default(),
+		// TODO put this U256 into arguments
+		// Define genesis configuration of difficulty pallet that forms a global chain genesis
+		// TODO any other value in the string here?
+		difficulty: DifficultyConfig { initial_difficulty: sp_core::U256::from_dec_str("1401562").unwrap()},
+	}
+}
+
 pub fn development_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
@@ -122,34 +155,4 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 		// Extensions
 		None,
 	))
-}
-
-/// Configure initial storage state for FRAME modules.
-fn testnet_genesis(
-	wasm_binary: &[u8],
-	initial_authorities: Vec<(GrandpaId)>,
-	root_key: AccountId,
-	endowed_accounts: Vec<AccountId>,
-	_enable_println: bool,
-) -> GenesisConfig {
-	GenesisConfig {
-		system: SystemConfig {
-			// Add Wasm runtime to storage.
-			code: wasm_binary.to_vec(),
-		},
-		balances: BalancesConfig {
-			// Configure endowed accounts with initial balance of 1 << 60.
-			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
-		},
-		grandpa: GrandpaConfig {
-			authorities: initial_authorities.iter().map(|x| (x.clone(), 1)).collect(),
-		},
-		sudo: SudoConfig {
-			// Assign network admin rights.
-			key: Some(root_key),
-		},
-		transaction_payment: Default::default(),
-		// TODO put this U256 into arguments
-		difficulty: DifficultyConfig { initial_difficulty: sp_core::U256 },
-	}
 }
