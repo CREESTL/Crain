@@ -5,9 +5,12 @@ use sc_client_api::{BlockBackend, ExecutorProvider};
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_finality_grandpa::SharedVoterState;
 use sc_keystore::LocalKeystore;
+use std::str::FromStr;
+use sc_rpc::{chain::ChainClient, state::StateClient};
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sha3::Sha3_224;
+use sp_consensus::CanAuthorWith;
 use log::*;
 use sp_core::H256;
 use std::path::PathBuf;
@@ -76,13 +79,15 @@ pub fn new_partial(
 		sc_transaction_pool::FullPool<Block, FullClient>,
 		// TODO delete grandpa here?
 		(
-			sc_finality_grandpa::GrandpaBlockImport<
-				FullBackend,
+			sc_consensus_pow::PowBlockImport<
 				Block,
+				Arc<FullClient>,
 				FullClient,
 				FullSelectChain,
+				Sha3Algorithm<FullClient>,
+				impl CanAuthorWith<Block>,
+				InherentDataProvidersBuilder,
 			>,
-			sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
 			Option<Telemetry>,
 		),
 	>,
