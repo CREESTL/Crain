@@ -70,5 +70,6 @@ substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/pa
 default = ["std"]
 std = [
 	"parity-scale-codec/std",
+	"crain-pow/std"
 ]
 runtime-benchmarks = ["crain-runtime/runtime-benchmarks"]
