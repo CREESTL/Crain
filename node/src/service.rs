@@ -18,7 +18,7 @@ use sp_api::ProvideRuntimeApi;
 use async_trait::async_trait;
 use crain_pow::*;
 use sp_timestamp::InherentDataProvider;
-use sp_core::{crypto::{Ss58AddressFormat, Ss58Codec, UncheckedFrom}};
+use sp_core::{crypto::{Ss58AddressFormat, Ss58AddressFormatRegistry, Ss58Codec, UncheckedFrom}};
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
@@ -200,7 +200,7 @@ pub fn decode_author(
 		} else {
 			let (address, version) = crain_pow::app::Public::from_ss58check_with_version(author)
 				.map_err(|_| "Invalid author address".to_string())?;
-			if version != Ss58AddressFormat::KulupuAccount {
+			if version != Ss58AddressFormat::from(Ss58AddressFormatRegistry::BareSr25519Account) {
 				return Err("Invalid author version".to_string());
 			}
 			Ok(address)
@@ -221,7 +221,7 @@ pub fn decode_author(
 		info!(
 			"Generated a mining key with address: {}",
 			pair.public()
-				.to_ss58check_with_version(Ss58AddressFormat::KulupuAccount)
+				.to_ss58check_with_version(Ss58AddressFormat::from(Ss58AddressFormatRegistry::BareSr25519Account))
 		);
 
 		match keystore_path {
