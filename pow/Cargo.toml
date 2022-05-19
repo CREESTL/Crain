@@ -17,14 +17,14 @@ sp-runtime = { version = "6.0.0", default-features = false, git = "https://githu
 log = "0.4"
 scale-info = { version = "2.0.1", default-features = false, features = ["derive"] }
 
-# [features]
-# default = ["std"]
-# std = [
-# 	"sp-core/std",
-# 	"sp-application-crypto/std",
-# 	"parity-scale-codec/std",
-# 	"sp-consensus-pow/std",
-# 	"sha3/std",
-# 	"sp-api/std",
-# 	"sp-runtime/std",
-# ]
+[features]
+default = ["std"]
+std = [
+	"sp-core/std",
+	"sp-application-crypto/std",
+	"parity-scale-codec/std",
+	"sp-consensus-pow/std",
+	"sha3/std",
+	"sp-api/std",
+	"sp-runtime/std",
+]
