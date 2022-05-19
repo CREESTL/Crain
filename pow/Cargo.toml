@@ -21,7 +21,7 @@ scale-info = { version = "2.0.1", default-features = false, features = ["derive"
 default = ["std"]
 std = [
 	"sp-core/std",
-	"sp-application-crypto/std",
+	"sp-application-crypto/std", # enables sp-application-crypto/full_crypto as well
 	"parity-scale-codec/std",
 	"sp-consensus-pow/std",
 	"sha3/std",
