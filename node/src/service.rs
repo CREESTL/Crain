@@ -16,7 +16,7 @@ use sp_core::H256;
 use std::path::PathBuf;
 use sp_api::ProvideRuntimeApi;
 use async_trait::async_trait;
-use crain_pow::*;
+use crain_pow::Sha3Algorithm;
 use sp_timestamp::InherentDataProvider;
 use sp_core::{crypto::{Ss58AddressFormat, Ss58AddressFormatRegistry, Ss58Codec, UncheckedFrom}};
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
@@ -198,6 +198,7 @@ pub fn decode_author(
 			)
 			.into())
 		} else {
+			// This line compiles if sp_core::crypto std feature is enabled
 			let (address, version) = crain_pow::app::Public::from_ss58check_with_version(author)
 				.map_err(|_| "Invalid author address".to_string())?;
 			if version != Ss58AddressFormat::from(Ss58AddressFormatRegistry::BareSr25519Account) {
@@ -206,8 +207,11 @@ pub fn decode_author(
 			Ok(address)
 		}
 	} else {
+		// TODO can I just delete this whole block? 
 		info!("The node is configured for mining, but no author key is provided.");
 
+		crain_pow::app::Pair::from_seed();
+		// This line compiles if sp_application_crypto std feature is enabled
 		let (pair, phrase, _) = crain_pow::app::Pair::generate_with_phrase(None);
 
 		SyncCryptoStore::insert_unknown(
@@ -244,7 +248,7 @@ pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskM
 		mut keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (pow_block_import, grandpa_link, mut telemetry),
+		other: (pow_block_import, mut telemetry),
 	} = new_partial(&config)?;
 
 
@@ -361,7 +365,6 @@ pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskM
 	let keystore = if role.is_authority() { Some(keystore_container.sync_keystore()) } else { None };
 
 	let grandpa_config = sc_finality_grandpa::Config {
-		// FIXME #1578 make this available through chainspec
 		gossip_duration: Duration::from_millis(333),
 		justification_period: 512,
 		name: Some(name),

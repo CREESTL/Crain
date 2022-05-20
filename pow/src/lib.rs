@@ -15,6 +15,8 @@ pub mod app {
 	use sp_core::crypto::KeyTypeId;
 
 	pub const ID: KeyTypeId = KeyTypeId(*b"crn1");
+	
+	// TODO ensure that this line is compiled in std
 	app_crypto!(sr25519, ID);
 }
 

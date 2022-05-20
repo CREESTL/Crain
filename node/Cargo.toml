@@ -60,8 +60,8 @@ frame-benchmarking = { version = "4.0.0-dev", git = "https://github.com/parityte
 frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
 
 # Local Dependencies
-crain-runtime = { version = "4.0.0-dev", path = "../runtime" }
 crain-pow = { path = "../pow" }
+crain-runtime = { version = "4.0.0-dev", path = "../runtime" }
 
 [build-dependencies]
 substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
