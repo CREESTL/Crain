@@ -67,10 +67,12 @@ crain-pow = { path = "../pow" }
 substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
 
 [features]
-default = ["std"]
-std = [
-	"parity-scale-codec/std",
-]
+# TODO uncomment these two?
+default = []
+# default = ["std"]
+# std = [
+# 	"parity-scale-codec/std",
+# ]
 wasmtime = [
 	"sc-executor/wasmtime",
 	"sc-cli/wasmtime",
