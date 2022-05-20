@@ -4,27 +4,29 @@ edition = "2021"
 version = "2.9.0"
 license = "GPL-3.0-or-later"
 
+# TODO delete default-features for all?? delete [features] at all?
+
 [dependencies]
-sp-core = { version = "6.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
-sp-application-crypto = { version = "6.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
-parity-scale-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+sp-core = { version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
+sp-application-crypto = { version = "6.0.0",  git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
+parity-scale-codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
 sp-consensus-pow = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
 sc-consensus-pow = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
-sha3 = { version = "0.10.0", default-features = false }
+sha3 = { version = "0.10.0"}
 sp-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
 sc-client-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
-sp-runtime = { version = "6.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
+sp-runtime = { version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
 log = "0.4"
-scale-info = { version = "2.0.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.0.1", features = ["derive"] }
 
-[features]
-default = ["std"]
-std = [
-	"sp-core/std",
-	"sp-application-crypto/std", # enables sp-application-crypto/full_crypto as well
-	"parity-scale-codec/std",
-	"sp-consensus-pow/std",
-	"sha3/std",
-	"sp-api/std",
-	"sp-runtime/std",
-]
+# [features]
+# default = ["std"]
+# std = [
+# 	"sp-core/std",
+# 	"sp-application-crypto/std", # enables sp-application-crypto/full_crypto as well
+# 	"parity-scale-codec/std",
+# 	"sp-consensus-pow/std",
+# 	"sha3/std",
+# 	"sp-api/std",
+# 	"sp-runtime/std",
+# ]
