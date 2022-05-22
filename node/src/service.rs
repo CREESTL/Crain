@@ -13,6 +13,7 @@ use sha3::Sha3_224;
 use sp_consensus::CanAuthorWith;
 use log::*;
 use sp_core::H256;
+use sp_core::Pair;
 use std::path::PathBuf;
 use sp_api::ProvideRuntimeApi;
 use async_trait::async_trait;
@@ -210,7 +211,6 @@ pub fn decode_author(
 		// TODO can I just delete this whole block? 
 		info!("The node is configured for mining, but no author key is provided.");
 
-		crain_pow::app::Pair::from_seed();
 		// This line compiles if sp_application_crypto std feature is enabled
 		let (pair, phrase, _) = crain_pow::app::Pair::generate_with_phrase(None);
 
