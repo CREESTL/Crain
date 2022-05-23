@@ -86,7 +86,13 @@ pub fn new_partial(
 				FullClient,
 				FullSelectChain,
 				Sha3Algorithm<FullClient>,
-				impl CanAuthorWith<Block>,
+				sp_consensus::CanAuthorWithNativeVersion<
+					sc_service::LocalCallExecutor<
+						Block,
+						sc_client_db::Backend<Block>,
+						NativeElseWasmExecutor<ExecutorDispatch>,
+					>,
+				>,
 				InherentDataProvidersBuilder,
 			>,
 			sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
@@ -149,8 +155,6 @@ pub fn new_partial(
 	)?;
 
 
-	let can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
-
 	let algorithm = Sha3Algorithm::new(client.clone());
 
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
@@ -160,7 +164,7 @@ pub fn new_partial(
 		0,
 		select_chain.clone(),
 		InherentDataProvidersBuilder,
-		can_author_with,
+		sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()), // TODO this must impl Clone
 		);
 
 	let boxed_import = Box::new(pow_block_import.clone());
@@ -173,10 +177,10 @@ pub fn new_partial(
 			config.prometheus_registry(),
 		)?;
 
+
 	Ok(sc_service::PartialComponents {
 		client,
 		backend,
-		// TODO more arguments that needed?
 		task_manager,
 		keystore_container,
 		select_chain,
@@ -184,6 +188,7 @@ pub fn new_partial(
 		transaction_pool,
 		// TODO delete telemetry?
 		other: (pow_block_import, grandpa_link, telemetry),
+		
 	})
 }
 
@@ -240,19 +245,19 @@ pub fn decode_author(
 
 /// Builds a new service for a full client.
 // TODO delete author from parameters?
-pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskManager, ServiceError> {
+pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
 		backend,
-		mut task_manager,
-		import_queue,
-		mut keystore_container,
+		task_manager,
+		keystore_container,
 		select_chain,
+		import_queue,
 		transaction_pool,
 		other: (pow_block_import, grandpa_link, mut telemetry),
 	} = new_partial(&config)?;
 
-
+	// Configure GRANDPA warp sync 
 	let grandpa_protocol_name = sc_finality_grandpa::protocol_standard_name(
 		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
 		&config.chain_spec,
@@ -262,11 +267,13 @@ pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskM
 		.network
 		.extra_sets
 		.push(sc_finality_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone()));
+	
 	let warp_sync = Arc::new(sc_finality_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
 		grandpa_link.shared_authority_set().clone(),
 		Vec::default(),
 	));
+
 
 	let (network, system_rpc_tx, network_starter) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
@@ -334,15 +341,15 @@ pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskM
 			telemetry.as_ref().map(|x| x.handle()),
 		);
 
-		let can_author_with =
-			sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
+
+		let can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
 
 		let (worker, worker_task) = sc_consensus_pow::start_mining_worker(
 			Box::new(pow_block_import.clone()),
 			client.clone(),
 			select_chain.clone(),
-			algorithm.clone(),
+			algorithm,
 			proposer_factory,
 			network.clone(),
 			None,
@@ -351,7 +358,7 @@ pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskM
 			InherentDataProvidersBuilder,
 			Duration::new(10, 0),
 			Duration::new(10, 0),
-			sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
+			can_author_with
 		);
 
 		// the AURA authoring task is considered essential, i.e. if it
