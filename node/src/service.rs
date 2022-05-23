@@ -89,6 +89,7 @@ pub fn new_partial(
 				impl CanAuthorWith<Block>,
 				InherentDataProvidersBuilder,
 			>,
+			sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
 			Option<Telemetry>,
 		),
 	>,
@@ -182,7 +183,7 @@ pub fn new_partial(
 		import_queue,
 		transaction_pool,
 		// TODO delete telemetry?
-		other: (pow_block_import, telemetry),
+		other: (pow_block_import, grandpa_link, telemetry),
 	})
 }
 
@@ -248,7 +249,7 @@ pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskM
 		mut keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (pow_block_import, mut telemetry),
+		other: (pow_block_import, grandpa_link, mut telemetry),
 	} = new_partial(&config)?;
 
 
