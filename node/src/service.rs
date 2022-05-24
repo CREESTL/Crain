@@ -246,11 +246,11 @@ pub fn decode_author(
 
 /// Builds a new service for a full client.
 // TODO delete author from parameters?
-pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManager, ServiceError> {
+pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
 		backend,
-		task_manager,
+		mut task_manager,
 		keystore_container,
 		select_chain,
 		import_queue,
@@ -314,23 +314,24 @@ pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManag
 			Ok(crate::rpc::create_full(deps))
 		})
 	};
+	
+	let keystore_path = config.keystore.path().map(|p| p.to_owned());
 
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-		network: network.clone(),
+		config,
 		client: client.clone(),
-		keystore: keystore_container.sync_keystore(),
+		backend,
 		task_manager: &mut task_manager,
+		keystore: keystore_container.sync_keystore(),
 		transaction_pool: transaction_pool.clone(),
 		rpc_extensions_builder,
-		backend,
+		network: network.clone(),
 		system_rpc_tx,
-		config,
 		telemetry: telemetry.as_mut(),
 	})?;
 
 	if role.is_authority() {
 
-		let keystore_path = config.keystore.path().map(|p| p.to_owned());
 		let algorithm = Sha3Algorithm::new(client.clone());
 		let author = decode_author(author, keystore_container.sync_keystore(), keystore_path)?;
 		
