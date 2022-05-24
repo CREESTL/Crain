@@ -13,6 +13,7 @@ use sha3::Sha3_224;
 use sp_consensus::CanAuthorWith;
 use log::*;
 use sp_core::H256;
+use parity_scale_codec::Encode;
 use sp_core::Pair;
 use std::path::PathBuf;
 use sp_api::ProvideRuntimeApi;
@@ -352,7 +353,7 @@ pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManag
 			algorithm,
 			proposer_factory,
 			network.clone(),
-			None,
+			network.clone(),
 			Some(author.encode()), // Include authoreship into block
 			// TODO might be wrong parameter
 			InherentDataProvidersBuilder,
