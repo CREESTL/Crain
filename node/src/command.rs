@@ -42,7 +42,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		&node_template_runtime::VERSION
+		&crain_runtime::VERSION
 	}
 }
 
@@ -90,14 +90,22 @@ pub fn run() -> sc_cli::Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run(config.database))
 		},
+
 		Some(Subcommand::Revert(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, backend, .. } =
 					service::new_partial(&config)?;
+				// Delete grandpa, use custom revert here?
+				let aux_revert = Box::new(move |client, _, blocks| {
+					sc_finality_grandpa::revert(client, blocks)?;
+					Ok(())
+				});
 				Ok((cmd.run(client, backend), task_manager))
 			})
 		},
+
+
 		Some(Subcommand::Benchmark(cmd)) =>
 			if cfg!(feature = "runtime-benchmarks") {
 				let runner = cli.create_runner(cmd)?;

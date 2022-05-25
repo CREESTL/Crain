@@ -4,25 +4,18 @@ use crain_runtime::{self, opaque::Block, RuntimeApi};
 use sc_client_api::{BlockBackend, ExecutorProvider};
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_finality_grandpa::SharedVoterState;
-use sc_keystore::LocalKeystore;
 use std::str::FromStr;
-use sc_rpc::{chain::ChainClient, state::StateClient};
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
-use sha3::Sha3_224;
-use sp_consensus::CanAuthorWith;
 use log::*;
 use sp_core::H256;
 use parity_scale_codec::Encode;
 use sp_core::Pair;
 use std::path::PathBuf;
-use sp_api::ProvideRuntimeApi;
 use async_trait::async_trait;
 use crain_pow::Sha3Algorithm;
-use sp_timestamp::InherentDataProvider;
-use sp_core::{crypto::{Ss58AddressFormat, Ss58AddressFormatRegistry, Ss58Codec, UncheckedFrom}};
+use sp_core::crypto::{Ss58AddressFormat, Ss58AddressFormatRegistry, Ss58Codec, UncheckedFrom};
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
-use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
 use std::{sync::Arc, time::Duration};
 
@@ -148,7 +141,7 @@ pub fn new_partial(
 		client.clone(),
 	);
 
-	let (grandpa_block_import, grandpa_link) = sc_finality_grandpa::block_import(
+	let (_grandpa_block_import, grandpa_link) = sc_finality_grandpa::block_import(
 		client.clone(),
 		&(client.clone() as Arc<_>),
 		select_chain.clone(),
@@ -297,8 +290,6 @@ pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskM
 	}
 
 	let role = config.role.clone();
-	let force_authoring = config.force_authoring;
-	let backoff_authoring_blocks: Option<()> = None;
 	let name = config.network.node_name.clone();
 	let enable_grandpa = !config.disable_grandpa;
 	let prometheus_registry = config.prometheus_registry().cloned();
@@ -314,7 +305,7 @@ pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskM
 			Ok(crate::rpc::create_full(deps))
 		})
 	};
-	
+
 	let keystore_path = config.keystore.path().map(|p| p.to_owned());
 
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
@@ -347,7 +338,7 @@ pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskM
 		let can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
 
-		let (worker, worker_task) = sc_consensus_pow::start_mining_worker(
+		let (_worker, worker_task) = sc_consensus_pow::start_mining_worker(
 			Box::new(pow_block_import.clone()),
 			client.clone(),
 			select_chain.clone(),
@@ -355,7 +346,7 @@ pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskM
 			proposer_factory,
 			network.clone(),
 			network.clone(),
-			Some(author.encode()), // Include authoreship into block
+			Some(author.encode()), // Include authorship into block
 			// TODO might be wrong parameter
 			InherentDataProvidersBuilder,
 			Duration::new(10, 0),

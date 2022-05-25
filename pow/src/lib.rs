@@ -113,9 +113,9 @@ impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for Sha3Algorithm<C>
 		// Verify that the difficulty is valid against given seal
 		fn verify(
 			&self,
-			parent: &BlockId<B>,
+			_parent: &BlockId<B>,
 			pre_hash: &H256,
-			pre_digest: Option<&[u8]>,
+			_pre_digest: Option<&[u8]>,
 			seal: &RawSeal,
 			difficulty: Self::Difficulty,
 		) -> Result<bool, PowError<B>> {
