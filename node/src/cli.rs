@@ -7,6 +7,9 @@ pub struct Cli {
 
 	#[clap(flatten)]
 	pub run: RunCmd,
+
+	#[structopt(long)]
+	pub author: Option<String>,
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -37,7 +40,7 @@ pub enum Subcommand {
 	Revert(sc_cli::RevertCmd),
 
 	/// The custom benchmark subcommand benchmarking runtime pallets.
-	#[clap(name = "benchmark", about = "Benchmark runtime pallets.")]
+	#[clap(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
 	/// Try some command against runtime state.
