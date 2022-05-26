@@ -1,9 +1,8 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 use crain_runtime::{self, opaque::Block, RuntimeApi};
-use sc_client_api::{BlockBackend, ExecutorProvider};
+use sc_client_api::ExecutorProvider;
 pub use sc_executor::NativeElseWasmExecutor;
-use sc_finality_grandpa::SharedVoterState;
 use std::str::FromStr;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
@@ -72,7 +71,6 @@ pub fn new_partial(
 		FullSelectChain,
 		sc_consensus::DefaultImportQueue<Block, FullClient>,
 		sc_transaction_pool::FullPool<Block, FullClient>,
-		// TODO delete grandpa here?
 		(
 			sc_consensus_pow::PowBlockImport<
 				Block,
@@ -89,7 +87,6 @@ pub fn new_partial(
 				>,
 				InherentDataProvidersBuilder,
 			>,
-			sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
 			Option<Telemetry>,
 		),
 	>,
@@ -141,14 +138,6 @@ pub fn new_partial(
 		client.clone(),
 	);
 
-	let (_grandpa_block_import, grandpa_link) = sc_finality_grandpa::block_import(
-		client.clone(),
-		&(client.clone() as Arc<_>),
-		select_chain.clone(),
-		telemetry.as_ref().map(|x| x.handle()),
-	)?;
-
-
 	let algorithm = Sha3Algorithm::new(client.clone());
 
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
@@ -158,7 +147,7 @@ pub fn new_partial(
 		0,
 		select_chain.clone(),
 		InherentDataProvidersBuilder,
-		sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()), // TODO this must impl Clone
+		sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()), 
 		);
 
 	let boxed_import = Box::new(pow_block_import.clone());
@@ -181,7 +170,7 @@ pub fn new_partial(
 		import_queue,
 		transaction_pool,
 		// TODO delete telemetry?
-		other: (pow_block_import, grandpa_link, telemetry),
+		other: (pow_block_import, telemetry),
 		
 	})
 }
@@ -239,7 +228,7 @@ pub fn decode_author(
 
 /// Builds a new service for a full client.
 // TODO delete author from parameters?
-pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskManager, ServiceError> {
+pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -248,25 +237,10 @@ pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskM
 		select_chain,
 		import_queue,
 		transaction_pool,
-		other: (pow_block_import, grandpa_link, mut telemetry),
+		other: (pow_block_import, 
+			mut telemetry),
 	} = new_partial(&config)?;
 
-	// Configure GRANDPA warp sync 
-	let grandpa_protocol_name = sc_finality_grandpa::protocol_standard_name(
-		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
-		&config.chain_spec,
-	);
-
-	config
-		.network
-		.extra_sets
-		.push(sc_finality_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone()));
-	
-	let warp_sync = Arc::new(sc_finality_grandpa::warp_proof::NetworkProvider::new(
-		backend.clone(),
-		grandpa_link.shared_authority_set().clone(),
-		Vec::default(),
-	));
 
 
 	let (network, system_rpc_tx, network_starter) =
@@ -277,7 +251,7 @@ pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskM
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			warp_sync: Some(warp_sync),
+			warp_sync: None,
 		})?;
 
 	if config.offchain_worker.enabled {
@@ -290,8 +264,6 @@ pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskM
 	}
 
 	let role = config.role.clone();
-	let name = config.network.node_name.clone();
-	let enable_grandpa = !config.disable_grandpa;
 	let prometheus_registry = config.prometheus_registry().cloned();
 
 	let rpc_extensions_builder = {
@@ -349,7 +321,9 @@ pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskM
 			Some(author.encode()), // Include authorship into block
 			// TODO might be wrong parameter
 			InherentDataProvidersBuilder,
+			// Time to wait for a new block before starting to mine a new one
 			Duration::new(10, 0),
+			// how long to take to actually build the block (i.e. executing extrinsics)
 			Duration::new(10, 0),
 			can_author_with
 		);
@@ -359,47 +333,6 @@ pub fn new_full(mut config: Configuration, author: Option<&str>) -> Result<TaskM
 		task_manager
 			.spawn_essential_handle()
 			.spawn_blocking("pow", Some("block-authoring"), worker_task);
-	}
-
-	// if the node isn't actively participating in consensus then it doesn't
-	// need a keystore, regardless of which protocol we use below.
-	let keystore = if role.is_authority() { Some(keystore_container.sync_keystore()) } else { None };
-
-	let grandpa_config = sc_finality_grandpa::Config {
-		gossip_duration: Duration::from_millis(333),
-		justification_period: 512,
-		name: Some(name),
-		observer_enabled: false,
-		keystore,
-		local_role: role,
-		telemetry: telemetry.as_ref().map(|x| x.handle()),
-		protocol_name: grandpa_protocol_name,
-	};
-
-	if enable_grandpa {
-		// start the full GRANDPA voter
-		// NOTE: non-authorities could run the GRANDPA observer protocol, but at
-		// this point the full voter should provide better guarantees of block
-		// and vote data availability than the observer. The observer has not
-		// been tested extensively yet and having most nodes in a network run it
-		// could lead to finality stalls.
-		let grandpa_config = sc_finality_grandpa::GrandpaParams {
-			config: grandpa_config,
-			link: grandpa_link,
-			network,
-			voting_rule: sc_finality_grandpa::VotingRulesBuilder::default().build(),
-			prometheus_registry,
-			shared_voter_state: SharedVoterState::empty(),
-			telemetry: telemetry.as_ref().map(|x| x.handle()),
-		};
-
-		// the GRANDPA voter task is considered infallible, i.e.
-		// if it fails we take down the service with it.
-		task_manager.spawn_essential_handle().spawn_blocking(
-			"grandpa-voter",
-			None,
-			sc_finality_grandpa::run_grandpa_voter(grandpa_config)?,
-		);
 	}
 
 	network_starter.start_network();
