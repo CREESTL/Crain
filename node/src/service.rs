@@ -152,6 +152,8 @@ pub fn new_partial(
 
 	let boxed_import = Box::new(pow_block_import.clone());
 
+
+	// TODO no block production bug can be here!
 	let import_queue = sc_consensus_pow::import_queue(
 			boxed_import,
 			None,
