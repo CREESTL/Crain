@@ -42,6 +42,7 @@ pub struct Seal {
 
 
 // An attempt to solve a PoW
+// Calling the `compute` method will compute the hash and return the seal
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct Compute {
 	pub difficulty: U256,
@@ -93,14 +94,14 @@ impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for Sha3Algorithm<C>
 		fn difficulty(&self, parent: B::Hash) -> Result<Self::Difficulty, PowError<B>> {
 			let parent_id = BlockId::<B>::hash(parent);
 			let difficulty = self
-			.client
-			.runtime_api()
-			.difficulty(&parent_id)
-			.map_err(|e| {
-				PowError::Environment(format!("Fetching difficulty from runtime failed: {:?}", e))
+				.client
+				.runtime_api()
+				.difficulty(&parent_id)
+				.map_err(|e| {
+					PowError::Environment(format!("Fetching difficulty from runtime failed: {:?}", e))
 			});
 
-		difficulty
+			difficulty
 
 		}
 

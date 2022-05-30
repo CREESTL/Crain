@@ -128,8 +128,11 @@ pub fn new_partial(
 		telemetry
 	});
 
+
+	// The longest chain is selected to be the only one
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
+	// Transaction pool
 	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
 		config.transaction_pool.clone(),
 		config.role.is_authority().into(),
@@ -138,8 +141,10 @@ pub fn new_partial(
 		client.clone(),
 	);
 
+	// Custom SHA3 PoW Algorithm
 	let algorithm = Sha3Algorithm::new(client.clone());
 
+	// Importer of blocks
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
 		client.clone(),
 		client.clone(),
@@ -171,7 +176,6 @@ pub fn new_partial(
 		select_chain,
 		import_queue,
 		transaction_pool,
-		// TODO delete telemetry?
 		other: (pow_block_import, telemetry),
 		
 	})
@@ -199,7 +203,6 @@ pub fn decode_author(
 			Ok(address)
 		}
 	} else {
-		// TODO can I just delete this whole block? 
 		info!("The node is configured for mining, but no author key is provided.");
 
 		// This line compiles if sp_application_crypto std feature is enabled
@@ -231,6 +234,8 @@ pub fn decode_author(
 /// Builds a new service for a full client.
 // TODO delete author from parameters?
 pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManager, ServiceError> {
+	
+	// Create partial components of the server first to be used for full node
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -244,7 +249,7 @@ pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManag
 	} = new_partial(&config)?;
 
 
-
+	// Create a network service, RPS sender and network status sinker
 	let (network, system_rpc_tx, network_starter) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
@@ -298,6 +303,8 @@ pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManag
 	if role.is_authority() {
 
 		let algorithm = Sha3Algorithm::new(client.clone());
+		// If author string was passed in the CLI - decode it
+		// Else - generate new key pair
 		let author = decode_author(author, keystore_container.sync_keystore(), keystore_path)?;
 		
 		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
@@ -311,7 +318,8 @@ pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManag
 
 		let can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
-
+		// `worker` allows quering the current mining metadata and submitting mined blocks
+		// `worker_task` is a future which must be polled to fill in information in the worker
 		let (_worker, worker_task) = sc_consensus_pow::start_mining_worker(
 			Box::new(pow_block_import.clone()),
 			client.clone(),
@@ -319,9 +327,9 @@ pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManag
 			algorithm,
 			proposer_factory,
 			network.clone(),
+			// TODO set this to None?
 			network.clone(),
 			Some(author.encode()), // Include authorship into block
-			// TODO might be wrong parameter
 			InherentDataProvidersBuilder,
 			// Time to wait for a new block before starting to mine a new one
 			Duration::new(10, 0),
@@ -330,10 +338,10 @@ pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManag
 			can_author_with
 		);
 
-		// the AURA authoring task is considered essential, i.e. if it
-		// fails we take down the service with it.
+
 		task_manager
-			.spawn_essential_handle()
+		// TODO add essential here?
+			.spawn_handle()
 			.spawn_blocking("pow", Some("block-authoring"), worker_task);
 	}
 

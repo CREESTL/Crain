@@ -1,5 +1,5 @@
 use crain_runtime::{
-	AccountId, BalancesConfig, DifficultyConfig, GenesisConfig, Signature, SudoConfig,
+	AccountId, BalancesConfig, DifficultyConfig, GenesisConfig, Signature,
 	SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
