@@ -73,6 +73,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-inherents/std",
 	"frame-support/std",
+	"frame-try-runtime/std",
 	"frame-executive/std",
 	"crain-primitives/std",
 

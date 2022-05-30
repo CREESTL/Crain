@@ -110,7 +110,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 			)
 		},
 		// Bootnodes
-		// TODO change properties like in kulupu
+		// TODO change properties like in crain
 		vec![],
 		// Telemetry
 		None,
