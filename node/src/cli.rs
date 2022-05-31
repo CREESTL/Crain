@@ -1,23 +1,9 @@
 use sc_cli::RunCmd;
+use std::str::FromStr;
+use structopt::StructOpt;
 
-#[derive(Debug, clap::Parser)]
-pub struct Cli {
-	#[clap(subcommand)]
-	pub subcommand: Option<Subcommand>,
-
-	#[clap(flatten)]
-	pub run: RunCmd,
-
-	#[structopt(long)]
-	pub author: Option<String>,
-}
-
-#[derive(Debug, clap::Subcommand)]
+#[derive(Debug, StructOpt)]
 pub enum Subcommand {
-	/// Key management cli utilities
-	#[clap(subcommand)]
-	Key(sc_cli::KeySubcommand),
-
 	/// Build a chain specification.
 	BuildSpec(sc_cli::BuildSpecCmd),
 
@@ -39,15 +25,107 @@ pub enum Subcommand {
 	/// Revert the chain to a previous state.
 	Revert(sc_cli::RevertCmd),
 
-	/// The custom benchmark subcommand benchmarking runtime pallets.
-	#[clap(subcommand)]
+	#[structopt(name = "export-builtin-wasm", setting = structopt::clap::AppSettings::Hidden)]
+	ExportBuiltinWasm(ExportBuiltinWasmCommand),
+
+	#[structopt(name = "import-mining-key")]
+	ImportMiningKey(ImportMiningKeyCommand),
+
+	#[structopt(name = "generate-mining-key")]
+	GenerateMiningKey(GenerateMiningKeyCommand),
+
+	/// The custom benchmark subcommmand benchmarking runtime pallets.
+	#[structopt(name = "benchmark", about = "Benchmark runtime pallets.")]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
+}
 
-	/// Try some command against runtime state.
-	#[cfg(feature = "try-runtime")]
-	TryRuntime(try_runtime_cli::TryRuntimeCmd),
+#[derive(Debug, Eq, PartialEq)]
+pub enum RandomxFlag {
+	LargePages,
+	Secure,
+}
 
-	/// Try some command against runtime state. Note: `try-runtime` feature must be enabled.
-	#[cfg(not(feature = "try-runtime"))]
-	TryRuntime,
+impl FromStr for RandomxFlag {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s {
+			"large-pages" => Ok(Self::LargePages),
+			"secure" => Ok(Self::Secure),
+			_ => Err("Unknown flag".to_string()),
+		}
+	}
+}
+
+#[derive(Debug, StructOpt)]
+pub struct Cli {
+	#[structopt(subcommand)]
+	pub subcommand: Option<Subcommand>,
+
+	#[structopt(flatten)]
+	pub run: RunCmd,
+
+	#[structopt(long)]
+	pub author: Option<String>,
+	#[structopt(long)]
+	pub threads: Option<usize>,
+	#[structopt(long)]
+	pub round: Option<u32>,
+	#[structopt(long)]
+	pub enable_polkadot_telemetry: bool,
+	#[structopt(long)]
+	pub disable_weak_subjectivity: bool,
+	#[structopt(long)]
+	pub check_inherents_after: Option<u32>,
+	#[structopt(long)]
+	pub randomx_flags: Vec<RandomxFlag>,
+}
+
+#[derive(Debug, StructOpt)]
+pub struct ExportBuiltinWasmCommand {
+	#[structopt()]
+	pub folder: String,
+}
+
+#[derive(Debug, StructOpt)]
+pub struct ImportMiningKeyCommand {
+	#[structopt()]
+	pub suri: String,
+
+	#[allow(missing_docs)]
+	#[structopt(flatten)]
+	pub shared_params: sc_cli::SharedParams,
+
+	#[allow(missing_docs)]
+	#[structopt(flatten)]
+	pub keystore_params: sc_cli::KeystoreParams,
+}
+
+impl sc_cli::CliConfiguration for ImportMiningKeyCommand {
+	fn shared_params(&self) -> &sc_cli::SharedParams {
+		&self.shared_params
+	}
+	fn keystore_params(&self) -> Option<&sc_cli::KeystoreParams> {
+		Some(&self.keystore_params)
+	}
+}
+
+#[derive(Debug, StructOpt)]
+pub struct GenerateMiningKeyCommand {
+	#[allow(missing_docs)]
+	#[structopt(flatten)]
+	pub shared_params: sc_cli::SharedParams,
+
+	#[allow(missing_docs)]
+	#[structopt(flatten)]
+	pub keystore_params: sc_cli::KeystoreParams,
+}
+
+impl sc_cli::CliConfiguration for GenerateMiningKeyCommand {
+	fn shared_params(&self) -> &sc_cli::SharedParams {
+		&self.shared_params
+	}
+	fn keystore_params(&self) -> Option<&sc_cli::KeystoreParams> {
+		Some(&self.keystore_params)
+	}
 }
