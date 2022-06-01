@@ -46,6 +46,9 @@ sha3 = { version = "0.10.0" }
 parity-scale-codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
 async-trait = { version = "0.1" }
 log = "0.4"
+parking_lot = "0.10.0"
+futures = "0.3"
+structopt = "0.3"
 
 # These dependencies are used for the node template's RPCs
 jsonrpc-core = "18.0.0"
@@ -65,6 +68,8 @@ frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/pari
 # Local Dependencies
 crain-pow = { path = "../pow" }
 crain-runtime = { version = "4.0.0-dev", path = "../runtime" }
+crain-primitives = { path = "../primitives" }
+crain-pow-consensus = { path = "../pow/consensus" }
 
 [build-dependencies]
 substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }

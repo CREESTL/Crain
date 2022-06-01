@@ -400,7 +400,6 @@ impl_runtime_apis! {
 
 	impl sp_consensus_pow::DifficultyApi<Block, crain_primitives::Difficulty> for Runtime {
 		fn difficulty() -> crain_primitives::Difficulty {
-			// TODO bug here, but module is at line 55 in difficulty decl module!
 			pallet_difficulty::Module::<Runtime>::difficulty()
 		}
 	}

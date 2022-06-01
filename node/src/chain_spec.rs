@@ -1,5 +1,5 @@
 use crain_runtime::{
-	AccountId, BalancesConfig, DifficultyConfig, GenesisConfig, Signature, SudoConfig,
+	AccountId, BalancesConfig, DifficultyConfig, GenesisConfig, Signature,
 	SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
@@ -110,7 +110,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 			)
 		},
 		// Bootnodes
-		// TODO change properties like in kulupu
+		// TODO change properties like in crain
 		vec![],
 		// Telemetry
 		None,

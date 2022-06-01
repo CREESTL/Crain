@@ -1,16 +1,5 @@
 use sc_cli::RunCmd;
-
-#[derive(Debug, clap::Parser)]
-pub struct Cli {
-	#[clap(subcommand)]
-	pub subcommand: Option<Subcommand>,
-
-	#[clap(flatten)]
-	pub run: RunCmd,
-
-	#[structopt(long)]
-	pub author: Option<String>,
-}
+use std::str::FromStr;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
@@ -41,13 +30,49 @@ pub enum Subcommand {
 
 	/// The custom benchmark subcommand benchmarking runtime pallets.
 	#[clap(subcommand)]
+	/// The custom benchmark subcommmand benchmarking runtime pallets.
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
-	/// Try some command against runtime state.
-	#[cfg(feature = "try-runtime")]
-	TryRuntime(try_runtime_cli::TryRuntimeCmd),
+}
 
-	/// Try some command against runtime state. Note: `try-runtime` feature must be enabled.
-	#[cfg(not(feature = "try-runtime"))]
-	TryRuntime,
+#[derive(Debug, Eq, PartialEq)]
+pub enum RandomxFlag {
+	LargePages,
+	Secure,
+}
+
+impl FromStr for RandomxFlag {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s {
+			"large-pages" => Ok(Self::LargePages),
+			"secure" => Ok(Self::Secure),
+			_ => Err("Unknown flag".to_string()),
+		}
+	}
+}
+
+#[derive(Debug, clap::Parser)]
+pub struct Cli {
+	#[structopt(subcommand)]
+	pub subcommand: Option<Subcommand>,
+
+	#[structopt(flatten)]
+	pub run: RunCmd,
+
+	#[structopt(long)]
+	pub author: Option<String>,
+	#[structopt(long)]
+	pub threads: Option<usize>,
+	#[structopt(long)]
+	pub round: Option<u32>,
+	#[structopt(long)]
+	pub enable_polkadot_telemetry: bool,
+	#[structopt(long)]
+	pub disable_weak_subjectivity: bool,
+	#[structopt(long)]
+	pub check_inherents_after: Option<u32>,
+	#[structopt(long)]
+	pub randomx_flags: Vec<RandomxFlag>,
 }

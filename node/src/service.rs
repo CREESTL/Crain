@@ -1,22 +1,29 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
+use async_trait::async_trait;
+use parity_scale_codec::Encode;
+use crain_pow::compute::Error as ComputeError;
+use crain_pow::compute::RandomxError;
+use crain_pow::Error as PowError;
 use crain_runtime::{self, opaque::Block, RuntimeApi};
+use log::*;
+use parking_lot::Mutex;
 use sc_client_api::ExecutorProvider;
+use sc_consensus::DefaultImportQueue;
 pub use sc_executor::NativeElseWasmExecutor;
-use std::str::FromStr;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
-use log::*;
-use sp_core::H256;
-use parity_scale_codec::Encode;
-use sp_core::Pair;
-use std::path::PathBuf;
-use async_trait::async_trait;
-use crain_pow::Sha3Algorithm;
-use sp_core::crypto::{Ss58AddressFormat, Ss58AddressFormatRegistry, Ss58Codec, UncheckedFrom};
+use sp_core::{
+	crypto::{Ss58AddressFormat, Ss58AddressFormatRegistry, Ss58Codec, UncheckedFrom},
+	Pair, H256,
+};
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use std::path::PathBuf;
+use std::str::FromStr;
 use std::{sync::Arc, time::Duration};
+use std::thread;
+use crain_pow::RandomXAlgorithm;
 
 
 pub struct InherentDataProvidersBuilder;
@@ -60,35 +67,45 @@ type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
 
+
+type PowBlockImport = crain_pow_consensus::PowBlockImport<
+	Block,
+	crain_pow::weak_sub::WeakSubjectiveBlockImport<
+		Block,
+		Arc<FullClient>,
+		FullClient,
+		FullSelectChain,
+		crain_pow::RandomXAlgorithm<FullClient>,
+		crain_pow::weak_sub::ExponentialWeakSubjectiveAlgorithm,
+	>,
+	FullClient,
+	FullSelectChain,
+	crain_pow::RandomXAlgorithm<FullClient>,
+	sp_consensus::CanAuthorWithNativeVersion<
+		sc_service::LocalCallExecutor<
+			Block,
+			sc_client_db::Backend<Block>,
+			NativeElseWasmExecutor<ExecutorDispatch>,
+		>,
+	>,
+	InherentDataProvidersBuilder,
+>;
+
+
 /// Returns most parts of a service. Not enough to run a full chain,
 // But enough to perform chain operations like purge-chain
 pub fn new_partial(
 	config: &Configuration,
+	check_inherents_after: u32,
+	enable_weak_subjectivity: bool,
 ) -> Result<
 	sc_service::PartialComponents<
 		FullClient,
 		FullBackend,
 		FullSelectChain,
-		sc_consensus::DefaultImportQueue<Block, FullClient>,
+		DefaultImportQueue<Block, FullClient>,
 		sc_transaction_pool::FullPool<Block, FullClient>,
-		(
-			sc_consensus_pow::PowBlockImport<
-				Block,
-				Arc<FullClient>,
-				FullClient,
-				FullSelectChain,
-				Sha3Algorithm<FullClient>,
-				sp_consensus::CanAuthorWithNativeVersion<
-					sc_service::LocalCallExecutor<
-						Block,
-						sc_client_db::Backend<Block>,
-						NativeElseWasmExecutor<ExecutorDispatch>,
-					>,
-				>,
-				InherentDataProvidersBuilder,
-			>,
-			Option<Telemetry>,
-		),
+		(PowBlockImport, Option<Telemetry>),
 	>,
 	ServiceError,
 > {
@@ -114,12 +131,11 @@ pub fn new_partial(
 		config.runtime_cache_size,
 	);
 
-	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, _>(
-			&config,
-			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
-			executor,
-		)?;
+	let (client, backend, keystore_container, task_manager) = sc_service::new_full_parts(
+		&config,
+		telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+		executor,
+	)?;
 
 	let client = Arc::new(client);
 
@@ -128,6 +144,8 @@ pub fn new_partial(
 		telemetry
 	});
 
+
+	// The longest chain is selected to be the only one
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
 	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
@@ -138,44 +156,50 @@ pub fn new_partial(
 		client.clone(),
 	);
 
-	let algorithm = Sha3Algorithm::new(client.clone());
+	// Custom SHA3 PoW Algorithm
+	let algorithm = crain_pow::RandomXAlgorithm::new(client.clone());
 
-	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
+	let weak_sub_block_import = crain_pow::weak_sub::WeakSubjectiveBlockImport::new(
 		client.clone(),
 		client.clone(),
 		algorithm.clone(),
-		0,
+		crain_pow::weak_sub::ExponentialWeakSubjectiveAlgorithm(30, 1.1),
+		select_chain.clone(),
+		enable_weak_subjectivity,
+	);
+
+	let pow_block_import = crain_pow_consensus::PowBlockImport::new(
+		weak_sub_block_import,
+		client.clone(),
+		algorithm.clone(),
+		check_inherents_after,
 		select_chain.clone(),
 		InherentDataProvidersBuilder,
-		sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()), 
-		);
+		sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
+	);
 
-	let boxed_import = Box::new(pow_block_import.clone());
-
-
-	// TODO no block production bug can be here!
-	let import_queue = sc_consensus_pow::import_queue(
-			boxed_import,
-			None,
-			algorithm.clone(),
-			&task_manager.spawn_essential_handle(),
-			config.prometheus_registry(),
-		)?;
+	let import_queue = crain_pow_consensus::import_queue(
+		Box::new(pow_block_import.clone()),
+		None,
+		algorithm.clone(),
+		&task_manager.spawn_essential_handle(),
+		config.prometheus_registry(),
+	)?;
 
 
 	Ok(sc_service::PartialComponents {
 		client,
 		backend,
 		task_manager,
+		import_queue,
 		keystore_container,
 		select_chain,
-		import_queue,
 		transaction_pool,
-		// TODO delete telemetry?
 		other: (pow_block_import, telemetry),
-		
 	})
 }
+
+
 
 // TODO copied from Kulupu service.rs
 pub fn decode_author(
@@ -199,7 +223,6 @@ pub fn decode_author(
 			Ok(address)
 		}
 	} else {
-		// TODO can I just delete this whole block? 
 		info!("The node is configured for mining, but no author key is provided.");
 
 		// This line compiles if sp_application_crypto std feature is enabled
@@ -230,21 +253,29 @@ pub fn decode_author(
 
 /// Builds a new service for a full client.
 // TODO delete author from parameters?
-pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManager, ServiceError> {
+pub fn new_full(
+	config: Configuration,
+	author: Option<&str>,
+	threads: usize,
+	round: u32,
+	check_inherents_after: u32,
+	enable_weak_subjectivity: bool,
+) -> Result<TaskManager, ServiceError> {
+	
+	// Create partial components of the server first to be used for full node
 	let sc_service::PartialComponents {
 		client,
 		backend,
 		mut task_manager,
+		import_queue,
 		keystore_container,
 		select_chain,
-		import_queue,
 		transaction_pool,
-		other: (pow_block_import, 
-			mut telemetry),
-	} = new_partial(&config)?;
+		other: (pow_block_import, mut telemetry),
+	} = new_partial(&config, check_inherents_after, enable_weak_subjectivity)?;
 
 
-
+	// Create a network service, RPS sender and network status sinker
 	let (network, system_rpc_tx, network_starter) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
@@ -297,44 +328,91 @@ pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManag
 
 	if role.is_authority() {
 
-		let algorithm = Sha3Algorithm::new(client.clone());
+		// If author string was passed in the CLI - decode it
+		// Else - generate new key pair
 		let author = decode_author(author, keystore_container.sync_keystore(), keystore_path)?;
+		let algorithm = RandomXAlgorithm::new(client.clone());
 		
-		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
+		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
-			transaction_pool,
+			transaction_pool.clone(),
 			prometheus_registry.as_ref(),
 			telemetry.as_ref().map(|x| x.handle()),
 		);
 
-
-		let can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
-
-
-		let (_worker, worker_task) = sc_consensus_pow::start_mining_worker(
+		// `worker` allows quering the current mining metadata and submitting mined blocks
+		// `worker_task` is a future which must be polled to fill in information in the worker
+		let (worker, worker_task) = crain_pow_consensus::start_mining_worker(
 			Box::new(pow_block_import.clone()),
 			client.clone(),
 			select_chain.clone(),
 			algorithm,
-			proposer_factory,
+			proposer,
 			network.clone(),
 			network.clone(),
-			Some(author.encode()), // Include authorship into block
-			// TODO might be wrong parameter
+			Some(author.encode()),
 			InherentDataProvidersBuilder,
-			// Time to wait for a new block before starting to mine a new one
 			Duration::new(10, 0),
-			// how long to take to actually build the block (i.e. executing extrinsics)
 			Duration::new(10, 0),
-			can_author_with
+			sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
 		);
 
-		// the AURA authoring task is considered essential, i.e. if it
-		// fails we take down the service with it.
+
 		task_manager
-			.spawn_essential_handle()
+		// TODO add essential here?
+			.spawn_handle()
 			.spawn_blocking("pow", Some("block-authoring"), worker_task);
+
+		let stats = Arc::new(Mutex::new(crain_pow::Stats::new()));
+				for _ in 0..threads {
+			if let Some(keystore) = keystore_container.local_keystore() {
+				let worker = worker.clone();
+				let client = client.clone();
+				let stats = stats.clone();
+
+				thread::spawn(move || loop {
+					let metadata = worker.metadata();
+					if let Some(metadata) = metadata {
+						match crain_pow::mine(
+							client.as_ref(),
+							&keystore,
+							&BlockId::Hash(metadata.best_hash),
+							&metadata.pre_hash,
+							metadata.pre_runtime.as_ref().map(|v| &v[..]),
+							metadata.difficulty,
+							round,
+							&stats,
+						) {
+							Ok(Some(seal)) => {
+								let current_metadata = worker.metadata();
+								if current_metadata == Some(metadata) {
+									let _ = futures::executor::block_on(worker.submit(seal));
+								}
+							}
+							Ok(None) => (),
+							Err(PowError::Compute(ComputeError::CacheNotAvailable)) => {
+								thread::sleep(Duration::new(1, 0));
+							}
+							Err(PowError::Compute(ComputeError::Randomx(
+								err @ RandomxError::CacheAllocationFailed,
+							))) => {
+								warn!("Mining failed: {}", err.description());
+								thread::sleep(Duration::new(10, 0));
+							}
+							Err(err) => {
+								warn!("Mining failed: {:?}", err);
+							}
+						}
+					} else {
+						thread::sleep(Duration::new(1, 0));
+					}
+				});
+			} else {
+				warn!("Local keystore is not available");
+			}
+		}
+
 	}
 
 	network_starter.start_network();
