@@ -1,17 +1,13 @@
 use crate::chain_spec;
 use crate::cli::{Cli, RandomxFlag, Subcommand};
 use crate::service;
-use log::{info, warn};
-use sc_cli::{ChainSpec, Role, RuntimeVersion, SubstrateCli};
-use sc_keystore::LocalKeystore;
-use sc_service::{config::KeystoreConfig, PartialComponents};
-use sp_core::{
-	crypto::{Pair, Ss58AddressFormat, Ss58Codec},
-	hexdisplay::HexDisplay,
-};
-use sp_keystore::SyncCryptoStore;
-use std::{fs::File, io::Write, path::PathBuf};
-
+use crate::command_helper::{inherent_benchmark_data, BenchmarkExtrinsicBuilder};
+use log::warn;
+use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
+use sc_service::PartialComponents;
+use crain_runtime::Block;
+use std::sync::Arc;
+use frame_benchmarking_cli::BenchmarkCmd;
 
 const DEFAULT_CHECK_INHERENTS_AFTER: u32 = 152650;
 const DEFAULT_ROUND: u32 = 1000;
@@ -72,7 +68,9 @@ pub fn run() -> sc_cli::Result<()> {
 	let _ = crain_pow::compute::set_global_config(randomx_config);
 
 	match &cli.subcommand {
+
 		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
+		
 		Some(Subcommand::BuildSpec(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
@@ -166,123 +164,66 @@ pub fn run() -> sc_cli::Result<()> {
 			})
 		}
 
-		Some(Subcommand::ExportBuiltinWasm(cmd)) => {
-			let wasm_binary_bloaty = kulupu_runtime::WASM_BINARY_BLOATY
-				.ok_or("Wasm binary not available".to_string())?;
-			let wasm_binary = kulupu_runtime::WASM_BINARY
-				.ok_or("Compact Wasm binary not available".to_string())?;
-
-			info!("Exporting builtin wasm binary to folder: {}", cmd.folder);
-
-			let folder = PathBuf::from(cmd.folder.clone());
-			{
-				let mut path = folder.clone();
-				path.push("kulupu_runtime.compact.wasm");
-				let mut file = File::create(path)?;
-				file.write_all(&wasm_binary)?;
-				file.flush()?;
-			}
-
-			{
-				let mut path = folder.clone();
-				path.push("kulupu_runtime.wasm");
-				let mut file = File::create(path)?;
-				file.write_all(&wasm_binary_bloaty)?;
-				file.flush()?;
-			}
-
-			Ok(())
-		}
-		Some(Subcommand::ImportMiningKey(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| {
-				let keystore = match &config.keystore {
-					KeystoreConfig::Path { path, password } => {
-						LocalKeystore::open(path.clone(), password.clone())
-							.map_err(|e| format!("Open keystore failed: {:?}", e))?
-					}
-					KeystoreConfig::InMemory => LocalKeystore::in_memory(),
-				};
-
-				let pair = kulupu_pow::app::Pair::from_string(&cmd.suri, None)
-					.map_err(|e| format!("Invalid seed: {:?}", e))?;
-
-				SyncCryptoStore::insert_unknown(
-					&keystore,
-					kulupu_pow::app::ID,
-					&cmd.suri,
-					pair.public().as_ref(),
-				)
-				.map_err(|e| format!("Registering mining key failed: {:?}", e))?;
-
-				info!(
-					"Registered one mining key (public key 0x{}).",
-					HexDisplay::from(&pair.public().as_ref())
-				);
-
-				Ok(())
-			})
-		}
-		Some(Subcommand::GenerateMiningKey(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| {
-				let keystore = match &config.keystore {
-					KeystoreConfig::Path { path, password } => {
-						LocalKeystore::open(path.clone(), password.clone())
-							.map_err(|e| format!("Open keystore failed: {:?}", e))?
-					}
-					KeystoreConfig::InMemory => LocalKeystore::in_memory(),
-				};
-
-				let (pair, phrase, _) = kulupu_pow::app::Pair::generate_with_phrase(None);
-
-				SyncCryptoStore::insert_unknown(
-					&keystore,
-					kulupu_pow::app::ID,
-					&phrase,
-					pair.public().as_ref(),
-				)
-				.map_err(|e| format!("Registering mining key failed: {:?}", e))?;
-
-				info!("Generated one mining key.");
-
-				println!(
-					"Public key: 0x{}\nSecret seed: {}\nAddress: {}",
-					HexDisplay::from(&pair.public().as_ref()),
-					phrase,
-					pair.public()
-						.to_ss58check_with_version(Ss58AddressFormat::KulupuAccount),
-				);
-
-				Ok(())
-			})
-		}
+		// TODO not sure about this, taken from node template - not kulupu
 		Some(Subcommand::Benchmark(cmd)) => {
-			if cfg!(feature = "runtime-benchmarks") {
-				let runner = cli.create_runner(cmd)?;
+			let runner = cli.create_runner(cmd)?;
 
-				runner.sync_run(|config| {
-					cmd.run::<kulupu_runtime::Block, crate::service::ExecutorDispatch>(config)
-				})
-			} else {
-				Err("Benchmarking wasn't enabled when building the node. \
-				You can enable it with `--features runtime-benchmarks`."
-					.into())
-			}
+			runner.sync_run(|config| {
+				// This switch needs to be in the client, since the client decides
+				// which sub-commands it wants to support.
+				match cmd {
+					BenchmarkCmd::Pallet(cmd) => {
+						if !cfg!(feature = "runtime-benchmarks") {
+							return Err(
+								"Runtime benchmarking wasn't enabled when building the node. \
+							You can enable it with `--features runtime-benchmarks`."
+									.into(),
+							)
+						}
+
+						cmd.run::<Block, service::ExecutorDispatch>(config)
+					},
+					BenchmarkCmd::Block(cmd) => {
+						let PartialComponents { client, .. } = service::new_partial(
+																											&config,
+																						  cli.check_inherents_after
+																											.unwrap_or(DEFAULT_CHECK_INHERENTS_AFTER),
+																											!cli.disable_weak_subjectivity
+																											)?;
+
+						cmd.run(client)
+					},
+					BenchmarkCmd::Storage(cmd) => {
+						let PartialComponents { client, backend, .. } =
+							service::new_partial(
+									&config,
+									cli.check_inherents_after.unwrap_or(DEFAULT_CHECK_INHERENTS_AFTER),
+									!cli.disable_weak_subjectivity)?;
+						let db = backend.expose_db();
+						let storage = backend.expose_storage();
+
+						cmd.run(config, client, db, storage)
+					},
+					BenchmarkCmd::Overhead(cmd) => {
+						let PartialComponents { client, .. } = service::new_partial(
+																						&config,
+																	  cli.check_inherents_after.unwrap_or(DEFAULT_CHECK_INHERENTS_AFTER),
+																	  					!cli.disable_weak_subjectivity
+																						)?;
+						let ext_builder = BenchmarkExtrinsicBuilder::new(client.clone());
+
+						cmd.run(config, client, inherent_benchmark_data()?, Arc::new(ext_builder))
+					},
+
+				}
+			})
 		},
 
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
 			runner
 				.run_node_until_exit(|config| async move {
-					match config.role {
-						Role::Light => service::new_light(
-							config,
-							cli.check_inherents_after
-								.unwrap_or(DEFAULT_CHECK_INHERENTS_AFTER),
-							!cli.disable_weak_subjectivity,
-						),
-						_ => service::new_full(
+					service::new_full(
 							config,
 							cli.author.as_ref().map(|s| s.as_str()),
 							cli.threads.unwrap_or(1),
@@ -290,8 +231,7 @@ pub fn run() -> sc_cli::Result<()> {
 							cli.check_inherents_after
 								.unwrap_or(DEFAULT_CHECK_INHERENTS_AFTER),
 							!cli.disable_weak_subjectivity,
-						),
-					}
+						)
 				})
 				.map_err(sc_cli::Error::Service)
 		}
