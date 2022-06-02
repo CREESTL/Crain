@@ -16,7 +16,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
 };
-use pallet_contracts::{migration, weights::WeightInfo, DefaultContractAccessWeight};
+use pallet_contracts::{migration, weights::WeightInfo};
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -28,11 +28,11 @@ pub use frame_support::{
 	traits::{ConstU128, ConstU32, ConstU8, KeyOwnerProofSystem, Randomness, StorageInfo},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
-		IdentityFee, Weight,
+		IdentityFee, Weight, DispatchClass
 	},
 	StorageValue,
 };
-
+use frame_system::limits::{BlockLength, BlockWeights};
 pub use pallet_difficulty::*;
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -125,18 +125,43 @@ const CONTRACTS_DEBUG_OUTPUT: bool = true;
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 /// This is used to limit the maximal weight of a single extrinsic.
 const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
-// -- 
+
+/// We allow for 2 seconds of compute with a 6 second average block time.
+const MAXIMUM_BLOCK_WEIGHT: Weight = 2 * WEIGHT_PER_SECOND;
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub const BlockHashCount: BlockNumber = 2400;
-	/// We allow for 2 seconds of compute with a 6 second average block time.
-	pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights
-		::with_sensible_defaults(2 * WEIGHT_PER_SECOND, NORMAL_DISPATCH_RATIO);
-	pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
-		::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	// This part is copied from Substrate's `bin/node/runtime/src/lib.rs`.
+	//  The `RuntimeBlockLength` and `RuntimeBlockWeights` exist here because the
+	// `DeletionWeightLimit` and `DeletionQueueDepth` depend on those to parameterize
+	// the lazy contract deletion.
+	pub RuntimeBlockLength: BlockLength =
+		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
+		.base_block(BlockExecutionWeight::get())
+		.for_class(DispatchClass::all(), |weights| {
+			weights.base_extrinsic = ExtrinsicBaseWeight::get();
+		})
+		.for_class(DispatchClass::Normal, |weights| {
+			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
+		})
+		.for_class(DispatchClass::Operational, |weights| {
+			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
+			// Operational transactions have some extra reserved space, so that they
+			// are included even if block reached `MAXIMUM_BLOCK_WEIGHT`.
+			weights.reserved = Some(
+				MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT
+			);
+		})
+		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
+		.build_or_panic();
+
 	pub const SS58Prefix: u8 = 42;
 }
+
+// -- 
+
 
 // Configure FRAME pallets to include in runtime.
 
@@ -144,9 +169,9 @@ impl frame_system::Config for Runtime {
 	/// The basic call filter to use in dispatchable.
 	type BaseCallFilter = frame_support::traits::Everything;
 	/// Block & extrinsics weights: base values and limits.
-	type BlockWeights = BlockWeights;
+	type BlockWeights = RuntimeBlockWeights;
 	/// The maximum length of a block (in bytes).
-	type BlockLength = BlockLength;
+	type BlockLength = RuntimeBlockLength;
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
 	/// The aggregated dispatch type that is available for extrinsics.
@@ -257,27 +282,16 @@ impl pallet_contracts::Config for Runtime {
 	/// change because that would break already deployed contracts. The `Call` structure itself
 	/// is not allowed to change the indices of existing pallets, too.
 	type CallFilter = frame_support::traits::Nothing;
-	type DepositPerItem = DepositPerItem;
-	type DepositPerByte = DepositPerByte;
-	type CallStack = [pallet_contracts::Frame<Self>; 31];
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
 	type ChainExtension = ();
+	type Schedule = Schedule;
+	type CallStack = [pallet_contracts::Frame<Self>; 31];
 	type DeletionQueueDepth = DeletionQueueDepth;
 	type DeletionWeightLimit = DeletionWeightLimit;
-	type Schedule = Schedule;
+	type DepositPerItem = DepositPerItem;
+	type DepositPerByte = DepositPerByte;
 	type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
-	type ContractAccessWeight = DefaultContractAccessWeight<RuntimeBlockWeights>;
-	// This node is geared towards development and testing of contracts.
-	// We decided to increase the default allowed contract size for this
-	// reason (the default is `128 * 1024`).
-	//
-	// Our reasoning is that the error code `CodeTooLarge` is thrown
-	// if a too-large contract is uploaded. We noticed that it poses
-	// less friction during development when the requirement here is
-	// just more lax.
-	type MaxCodeLen = ConstU32<{ 256 * 1024 }>;
-	type RelaxedMaxCodeLen = ConstU32<{ 512 * 1024 }>;
 }
 
 
@@ -348,7 +362,7 @@ construct_runtime!(
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
 		// Include Difficulty pallet into runtime
-		Difficulty: pallet_difficulty::{Pallet, Call, Storage, Config} = 19
+		Difficulty: pallet_difficulty::{Pallet, Call, Storage, Config} = 19,
 		// Include Contracts pallet inti ryntime
 		Contracts: pallet_contracts,
 
