@@ -22,7 +22,6 @@ pub mod weak_sub;
 use codec::{Decode, Encode};
 use crain_pow_consensus::PowAlgorithm;
 use crain_primitives::{Difficulty};
-use log::*;
 use parking_lot::Mutex;
 use rand::{rngs::SmallRng, thread_rng, SeedableRng};
 use sc_client_api::{backend::AuxStore, blockchain::HeaderBackend};
@@ -36,7 +35,7 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto
 
 use std::{
 	sync::Arc,
-	time::{Duration, Instant},
+	time::Instant,
 };
 
 use crate::compute::{ComputeMode, ComputeV1, ComputeV2, SealV1, SealV2};
@@ -275,17 +274,17 @@ where
 }
 
 pub struct Stats {
-	last_clear: Instant,
-	last_display: Instant,
-	round: u32,
+	_last_clear: Instant,
+	_last_display: Instant,
+	_round: u32,
 }
 
 impl Stats {
 	pub fn new() -> Stats {
 		Self {
-			last_clear: Instant::now(),
-			last_display: Instant::now(),
-			round: 0,
+			_last_clear: Instant::now(),
+			_last_display: Instant::now(),
+			_round: 0,
 		}
 	}
 }
@@ -298,7 +297,7 @@ pub fn mine<B, C>(
 	pre_digest: Option<&[u8]>,
 	difficulty: Difficulty,
 	round: u32,
-	stats: &Arc<Mutex<Stats>>,
+	_stats: &Arc<Mutex<Stats>>,
 ) -> Result<Option<RawSeal>, Error<B>>
 where
 	B: BlockT<Hash = H256>,
@@ -396,70 +395,6 @@ where
 		),
 	};
 
-	let now = Instant::now();
-
-	let maybe_display = {
-		let mut stats = stats.lock();
-		let since_last_clear = now.checked_duration_since(stats.last_clear);
-		let since_last_display = now.checked_duration_since(stats.last_display);
-
-		if let (Some(since_last_clear), Some(since_last_display)) =
-			(since_last_clear, since_last_display)
-		{
-			let mut ret = None;
-
-			stats.round += round;
-			let duration = since_last_clear;
-
-			let clear = duration >= Duration::new(600, 0);
-			let display =
-				(clear || since_last_display >= Duration::new(2, 0)) && duration.as_secs() > 0;
-
-			if display {
-				stats.last_display = now;
-				ret = Some((duration, stats.round));
-			}
-
-			if clear {
-				stats.last_clear = now;
-				stats.round = 0;
-			}
-
-			ret
-		} else {
-			warn!(
-				target: "crain-pow",
-				"Calculating duration failed, the system time may have changed and the hashrate calculation may be temporarily inaccurate."
-			);
-
-			None
-		}
-	};
-
-	if let Some((duration, round)) = maybe_display {
-		let hashrate = round / duration.as_secs() as u32;
-		let network_hashrate = difficulty / U256::from(60);
-
-		if hashrate == 0 {
-			info!(
-				target: "crain-pow",
-				"Local hashrate: {} H/s, network hashrate: {} H/s",
-				hashrate,
-				network_hashrate,
-			);
-		} else {
-			let every: u32 = (network_hashrate / U256::from(hashrate)).unique_saturated_into();
-			let every_duration = Duration::new(60, 0) * every;
-			info!(
-				target: "crain-pow",
-				"Local hashrate: {} H/s, network hashrate: {} H/s, expected one block every {} ({} blocks)",
-				hashrate,
-				network_hashrate,
-				humantime::format_duration(every_duration).to_string(),
-				every,
-			);
-		}
-	}
 
 	Ok(maybe_seal?)
 }
