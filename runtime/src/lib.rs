@@ -16,7 +16,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
 };
-use pallet_contracts::{migration, weights::WeightInfo};
+use pallet_contracts::weights::WeightInfo;
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -115,7 +115,6 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 // Unit = the base number of indivisible units for balances
 const UNIT: Balance = 1_000_000_000_000;
 const MILLIUNIT: Balance = 1_000_000_000;
-const EXISTENTIAL_DEPOSIT: Balance = MILLIUNIT;
 const fn deposit(items: u32, bytes: u32) -> Balance {
   (items as Balance * UNIT + (bytes as Balance) * (5 * MILLIUNIT / 100)) / 10
 }
