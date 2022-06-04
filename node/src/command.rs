@@ -7,7 +7,7 @@ use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
 use crain_runtime::Block;
 use std::sync::Arc;
-use frame_benchmarking_cli::BenchmarkCmd;
+use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 
 const DEFAULT_CHECK_INHERENTS_AFTER: u32 = 152650;
 const DEFAULT_ROUND: u32 = 1000;
@@ -214,6 +214,8 @@ pub fn run() -> sc_cli::Result<()> {
 
 						cmd.run(config, client, inherent_benchmark_data()?, Arc::new(ext_builder))
 					},
+					BenchmarkCmd::Machine(cmd) =>
+						cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone()),			
 
 				}
 			})

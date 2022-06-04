@@ -5,7 +5,7 @@ license = "GPL-3.0-or-later"
 edition = "2018"
 
 [dependencies]
-sp-core = { version = "6.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
+sp-core = { version = "6.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git" }
 
 [features]
 default = ["std"]
