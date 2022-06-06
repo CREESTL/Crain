@@ -1,5 +1,5 @@
 use crain_runtime::{
-	AccountId, BalancesConfig, DifficultyConfig, GenesisConfig, Signature, SudoConfig,
+	AccountId, BalancesConfig, DifficultyConfig, GenesisConfig, Signature,
 	SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
@@ -18,37 +18,6 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 		.expect("static values are valid; qed")
 		.public()
 }
-
-
-
-/// Configure initial storage state for FRAME modules.
-/// Used a genesis constructor in the functions below
-// fn testnet_genesis(
-// 	wasm_binary: &[u8],
-// 	root_key: AccountId,
-// 	endowed_accounts: Vec<AccountId>,
-// 	_enable_println: bool,
-// ) -> GenesisConfig {
-// 	GenesisConfig {
-// 		system: SystemConfig {
-// 			// Add Wasm runtime to storage.
-// 			code: wasm_binary.to_vec(),
-// 		},
-// 		balances: BalancesConfig {
-// 			// Configure endowed accounts with initial balance of 1 << 60.
-// 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
-// 		},
-// 		sudo: SudoConfig {
-// 			// Assign network admin rights.
-// 			key: Some(root_key),
-// 		},
-// 		transaction_payment: Default::default(),
-// 		// TODO put this U256 into arguments
-// 		// Define genesis configuration of difficulty pallet that forms a global chain genesis
-// 		// TODO any other value in the string here?
-// 		difficulty: DifficultyConfig { initial_difficulty: sp_core::U256::from_dec_str("1401562").unwrap()},
-// 	}
-// }
 
 type AccountPublic = <Signature as Verify>::Signer;
 
@@ -99,7 +68,8 @@ pub fn development_config() -> Result<ChainSpec, String> {
 		move || {
 			testnet_genesis(
 				wasm_binary,
-				U256::from(1000),
+				// TODO the higher the longer mines?
+				U256::from(1000000),
 				vec![
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
 					get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -136,7 +106,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 		move || {
 			testnet_genesis(
 				wasm_binary,
-				U256::from(200),
+				U256::from(1000),
 				vec![
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
 					get_account_id_from_seed::<sr25519::Public>("Bob"),

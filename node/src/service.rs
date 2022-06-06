@@ -7,7 +7,9 @@ use std::str::FromStr;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use log::*;
-use sp_core::H256;
+use sp_core::{U256, H256};
+use std::thread;
+use crain_pow::*;
 use parity_scale_codec::Encode;
 use sp_core::Pair;
 use std::path::PathBuf;
@@ -335,6 +337,33 @@ pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManag
 		task_manager
 			.spawn_essential_handle()
 			.spawn_blocking("pow", Some("block-authoring"), worker_task);
+
+		// Start Mining
+		// (from recipes a bit modified)
+		let mut nonce: U256 = U256::from(0);
+		thread::spawn(move || loop {
+			let worker = _worker.clone();
+			let metadata = worker.metadata();
+			if let Some(metadata) = metadata {
+				let compute = Compute {
+					difficulty: metadata.difficulty,
+					pre_hash: metadata.pre_hash,
+					nonce,
+				};
+				let seal = compute.compute();
+				if hash_meets_difficulty(&seal.work, seal.difficulty) {
+					nonce = U256::from(0);
+					let _ = futures::executor::block_on(worker.submit(seal.encode()));
+				} else {
+					nonce = nonce.saturating_add(U256::from(1));
+					if nonce == U256::MAX {
+						nonce = U256::from(0);
+					}
+				}
+			} else {
+				thread::sleep(Duration::new(1, 0));
+			}
+		});
 	}
 
 	network_starter.start_network();
