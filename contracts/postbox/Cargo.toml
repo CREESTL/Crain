@@ -15,6 +15,8 @@ ink_lang = { version = "=3.0.1", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 
+rand = { version = "0.8.5", default-features = false }
+
 [workspace]
 
 [lib]
@@ -34,5 +36,6 @@ std = [
     "ink_primitives/std",
     "scale/std",
     "scale-info/std",
+    "rand/std",
 ]
 ink-as-dependency = []
