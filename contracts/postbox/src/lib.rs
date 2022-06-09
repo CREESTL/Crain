@@ -10,7 +10,10 @@ mod postbox {
 
     use ink_storage::traits::SpreadAllocate;
     use ink_env::debug_println;
-    use rand::Rng;
+    // use rand::{Rng, SeedableRng};
+    // use rand_chacha::*;
+    use byteorder::{BigEndian, ReadBytesExt}; // 1.2.7
+
 
     #[ink(storage)]
     #[derive(SpreadAllocate)]
@@ -20,7 +23,7 @@ mod postbox {
         // How many bids have been made
         bids_made: u32,
         // Accounts of members;
-        members: Vec<AccountId>,
+        members: ink_prelude::vec::Vec<AccountId>,
         // Bids of members
         // NOTE Does not implement Iterator!
         bids: ink_storage::Mapping<AccountId, Balance>,
@@ -31,6 +34,8 @@ mod postbox {
         from: Option<AccountId>,
         value: Balance,
     }
+
+
     impl Postbox {
         #[ink(constructor)]
         pub fn new(first_bid: Balance) -> Self {
@@ -95,8 +100,8 @@ mod postbox {
 
         // Function generated a random number of winner
         fn find_winner(&self) -> AccountId {
-            let mut rng = rand::thread_rng();
-            let winner_pos = rng.gen_range(0..self.size + 1);
+            //let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(10);
+            //let winner_pos = rng.gen_range(0..=10);
             let winner = self.members.get(winner_pos as usize).unwrap();
             *winner
         }
