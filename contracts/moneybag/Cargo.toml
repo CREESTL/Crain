@@ -1,5 +1,5 @@
 [package]
-name = "postbox"
+name = "moneybag"
 version = "0.1.0"
 authors = ["CREESTL creestl.job@yandex.ru"]
 edition = "2021"
@@ -21,7 +21,7 @@ rand_chacha = { version = "0.3.1", default-features = false }
 [workspace]
 
 [lib]
-name = "postbox"
+name = "moneybag"
 path = "src/lib.rs"
 crate-type = [
 	# Used for normal contract Wasm blobs.

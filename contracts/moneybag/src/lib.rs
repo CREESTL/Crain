@@ -6,7 +6,7 @@ use ink_lang as ink;
 An auction contract
 */
 #[ink::contract]
-mod postbox {
+mod moneybag {
 
     use ink_storage::traits::SpreadAllocate;
     use ink_env::debug_println;
@@ -20,7 +20,7 @@ mod postbox {
 
     #[ink(storage)]
     #[derive(SpreadAllocate)]
-    pub struct Postbox {
+    pub struct Moneybag {
         // Number of members
         size: u32,
         // How many bids have been made
@@ -51,7 +51,7 @@ mod postbox {
         DuplicateMember,
     }
 
-    impl Postbox {
+    impl Moneybag {
         #[ink(constructor)]
         pub fn new(first_bid: Balance) -> Self {
 
