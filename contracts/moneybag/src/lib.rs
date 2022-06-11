@@ -3,7 +3,11 @@
 use ink_lang as ink;
 
 /*
-An auction contract
+- Each of the members makes a bid with native tokens
+- Each next bid should be not less than the current highest bid
+- Each next bid can be as high as it is possible
+- After all members have bid one is randomly picked as a winner
+- All funds from bids are transfered to the winner
 */
 #[ink::contract]
 mod moneybag {
@@ -29,6 +33,8 @@ mod moneybag {
         // Bids of members
         // NOTE Does not implement Iterator!
         bids: ink_storage::Mapping<AccountId, Balance>,
+        // Current max bid
+        max_bid: Balance,
     }
 
     #[ink(event)]
@@ -48,6 +54,7 @@ mod moneybag {
     pub enum Error {
         MaxBids,
         DuplicateMember,
+        BidTooLow,
     }
 
     impl Moneybag {
@@ -65,6 +72,8 @@ mod moneybag {
                             contract.members.push(caller);
                             // Initialize it with the first bid on start
                             contract.bids.insert(&caller, &first_bid);
+                            // First bid becomes max
+                            contract.max_bid = first_bid;
                         }
                     )
         }
@@ -75,11 +84,15 @@ mod moneybag {
         pub fn add_bid(&mut self, amount: Balance) -> Result <(), Error> {
             // If this function is called after max members was reached
             // return with error
-            if self.bids_made == self.size {
+            if self.bids_made >= self.size {
                 // Emit the event for log first
                 self.env().emit_event(MaxBidsReached{});
                 // Return error and do not continue
                 return Err(Error::MaxBids);
+            }
+            // No bid can be less than a half of the max bid
+            if amount < (self.max_bid / 2) {
+                return Err(Error::BidTooLow);
             }
             let caller = self.env().caller();
             // Same member can't bid more then once
@@ -89,6 +102,9 @@ mod moneybag {
             self.bids.insert(&caller, &amount);
             self.members.push(caller);
             self.bids_made += 1;
+            if amount > self.max_bid {
+                self.max_bid = amount;
+            }
             // If now all 5 members have bids - give someone a prize
             if self.bids_made == self.size {
                 self.env().emit_event(MaxBidsReached{});
@@ -116,9 +132,8 @@ mod moneybag {
         // Function transfers all funds to the winner
         fn give_prize(&mut self) {
             let total = self.get_total_sum();
-            let for_each = total as u32 / self.size;
             let winner = self.find_winner();
-            if self.env().transfer(winner, for_each.into()).is_err() {
+            if self.env().transfer(winner, total.into()).is_err() {
                 panic!("Prize transfer failed!");
             }
             self.env().emit_event(PrizeTransfered {});
@@ -156,6 +171,11 @@ mod moneybag {
             self.bids_made
         }
 
+        // Function returns current highest bid
+        #[ink(message)]
+        pub fn get_max_bid(&self) -> Balance {
+            self.max_bid
+        }
     }
 
     #[cfg(test)]
@@ -182,6 +202,17 @@ mod moneybag {
             set_caller::<DefaultEnvironment>(bob);
             bag.add_bid(bid).unwrap();
             assert_eq!(bag.get_my_bid().unwrap(), bid);       
+        }
+
+        #[ink::test]
+        fn get_max_bid_works() {
+            let bid = 100u128;
+            let mut bag = Moneybag::new(bid);
+            let accounts = default_accounts::<DefaultEnvironment>();
+            let bob: AccountId = accounts.bob;
+            set_caller::<DefaultEnvironment>(bob);
+            bag.add_bid(bid * 10).unwrap();
+            assert_eq!(bag.get_max_bid(), 1000);       
         }
 
         #[ink::test]
@@ -233,6 +264,22 @@ mod moneybag {
             assert!(bag.members.contains(&bob));
             // Check that bidder has the correct bid amount
             assert_eq!(bag.bids.get(&bob).unwrap(), bid);
+        }
+
+        #[ink::test]
+        fn too_low_bid_fails(){
+            let bid = 100u128;
+            // Max bid = 100
+            let mut bag = Moneybag::new(bid);
+            let accounts = default_accounts::<DefaultEnvironment>();
+            let bob: AccountId = accounts.bob;
+            let eve: AccountId = accounts.eve;
+            set_caller::<DefaultEnvironment>(bob);
+            // Max bid = 300. Allowed = 150+
+            bag.add_bid(bid * 3).unwrap();
+            set_caller::<DefaultEnvironment>(eve);
+            // Try to add 100 again
+            assert_eq!(bag.add_bid(bid), Result::Err(Error::BidTooLow));
         }
 
         #[ink::test]
