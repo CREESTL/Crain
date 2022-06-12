@@ -1,13 +1,11 @@
 [package]
 name = "crain-node"
 version = "4.0.0-dev"
-description = "A fresh FRAME-based Substrate node, ready for hacking."
-authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
-homepage = "https://substrate.io/"
+description = "A PoW Node of CRAIN Network"
+authors = ["CREESTL creestl.job@yandex.ru"]
 edition = "2021"
 license = "Unlicense"
 publish = false
-repository = "https://github.com/substrate-developer-hub/substrate-node-template/"
 build = "build.rs"
 
 [package.metadata.docs.rs]

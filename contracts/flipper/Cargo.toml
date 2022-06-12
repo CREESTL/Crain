@@ -1,7 +1,7 @@
 [package]
 name = "flipper"
 version = "0.1.0"
-authors = ["[your_name] <[your_email]>"]
+authors = ["CREESTL creestl.job@yandex.ru"]
 edition = "2021"
 
 [dependencies]

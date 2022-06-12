@@ -1,6 +1,7 @@
 [package]
 name = "crain-pow"
 edition = "2021"
+authors = ["CREESTL creestl.job@yandex.ru"]
 version = "2.9.0"
 license = "GPL-3.0-or-later"
 
