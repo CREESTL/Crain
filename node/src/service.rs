@@ -155,7 +155,6 @@ pub fn new_partial(
 	let boxed_import = Box::new(pow_block_import.clone());
 
 
-	// TODO no block production bug can be here!
 	let import_queue = sc_consensus_pow::import_queue(
 			boxed_import,
 			None,
@@ -173,13 +172,11 @@ pub fn new_partial(
 		select_chain,
 		import_queue,
 		transaction_pool,
-		// TODO delete telemetry?
 		other: (pow_block_import, telemetry),
 		
 	})
 }
 
-// TODO copied from Kulupu service.rs
 pub fn decode_author(
 	author: Option<&str>,
 	keystore: SyncCryptoStorePtr,
@@ -201,7 +198,6 @@ pub fn decode_author(
 			Ok(address)
 		}
 	} else {
-		// TODO can I just delete this whole block? 
 		info!("The node is configured for mining, but no author key is provided.");
 
 		// This line compiles if sp_application_crypto std feature is enabled
@@ -231,7 +227,6 @@ pub fn decode_author(
 }
 
 /// Builds a new service for a full client.
-// TODO delete author from parameters?
 pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
@@ -323,11 +318,10 @@ pub fn new_full(config: Configuration, author: Option<&str>) -> Result<TaskManag
 			network.clone(),
 			network.clone(),
 			Some(author.encode()), // Include authorship into block
-			// TODO might be wrong parameter
 			InherentDataProvidersBuilder,
 			// Time to wait for a new block before starting to mine a new one
 			Duration::new(10, 0),
-			// how long to take to actually build the block (i.e. executing extrinsics)
+			// How long to take to actually build the block (i.e. executing extrinsics)
 			Duration::new(10, 0),
 			can_author_with
 		);

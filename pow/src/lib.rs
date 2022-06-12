@@ -16,7 +16,6 @@ pub mod app {
 
 	pub const ID: KeyTypeId = KeyTypeId(*b"crn1");
 	
-	// TODO ensure that this line is compiled in std
 	app_crypto!(sr25519, ID);
 }
 

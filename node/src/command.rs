@@ -99,7 +99,6 @@ pub fn run() -> sc_cli::Result<()> {
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, backend, .. } =
 					service::new_partial(&config)?;
-				// TODO None can be passer as 3 parameter here
 				Ok((cmd.run(client, backend, None), task_manager))
 			})
 		},

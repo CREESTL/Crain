@@ -40,7 +40,6 @@ pub trait Config: pallet_timestamp::Config {
 decl_storage! {
 	trait Store for Module<T: Config> as Difficulty {
 		/// Past difficulties and timestamps, from earliest to latest.
-		// TODO bug in this line?
 		PastDifficultiesAndTimestamps: [Option<DifficultyAndTimestamp<T::Moment>>; 60] = [None; DIFFICULTY_ADJUST_WINDOW as usize];
 		/// Current difficulty.
 		pub CurrentDifficulty get(fn difficulty) build(|config: &GenesisConfig| {

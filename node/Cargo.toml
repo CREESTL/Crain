@@ -26,7 +26,6 @@ sc-executor = { version = "0.10.0-dev", git = "https://github.com/paritytech/sub
 sc-service = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19", features = ["wasmtime"]  }
 sc-telemetry = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
 sc-keystore = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
-# TODO not sure about the version
 sp-keystore = { version = "0.12.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
 sc-transaction-pool = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
 sc-transaction-pool-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
@@ -72,12 +71,10 @@ crain-runtime = { version = "4.0.0-dev", path = "../runtime" }
 substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
 
 [features]
-# TODO uncomment these two?
-default = []
-# default = ["std"]
-# std = [
-# 	"parity-scale-codec/std",
-# ]
+default = ["std"]
+std = [
+	"parity-scale-codec/std",
+]
 wasmtime = [
 	"sc-executor/wasmtime",
 	"sc-cli/wasmtime",

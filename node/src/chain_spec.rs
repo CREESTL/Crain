@@ -68,8 +68,8 @@ pub fn development_config() -> Result<ChainSpec, String> {
 		move || {
 			testnet_genesis(
 				wasm_binary,
-				// TODO the higher the longer mines?
-				U256::from(1000000),
+				// NOTE The higher the longer mines
+				U256::from(1_000_000),
 				vec![
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
 					get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -80,12 +80,12 @@ pub fn development_config() -> Result<ChainSpec, String> {
 			)
 		},
 		// Bootnodes
-		// TODO change properties like in kulupu
 		vec![],
 		// Telemetry
 		None,
 		// Protocol ID
 		None,
+		// Fork ID
 		None,
 		// Properties
 		None,
@@ -130,8 +130,9 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 		None,
 		// Protocol ID
 		None,
-		// Properties
+		// Fork ID
 		None,
+		// Properties
 		None,
 		// Extensions
 		None,
