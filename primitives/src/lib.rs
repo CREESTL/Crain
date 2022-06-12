@@ -30,21 +30,3 @@ pub const DIFFICULTY_DAMP_FACTOR: u128 = 3;
 pub const MIN_DIFFICULTY: u128 = DIFFICULTY_DAMP_FACTOR;
 /// Maximum difficulty.
 pub const MAX_DIFFICULTY: u128 = u128::max_value();
-
-/// Value of 1 KLP.
-pub const DOLLARS: u128 = 1_000_000_000_000;
-/// Value of cents relative to KLP.
-pub const CENTS: u128 = DOLLARS / 100;
-/// Value of millicents relative to KLP.
-pub const MILLICENTS: u128 = CENTS / 1_000;
-/// Value of microcents relative to RLP.
-pub const MICROCENTS: u128 = MILLICENTS / 1_000;
-
-pub const fn deposit(items: u32, bytes: u32) -> u128 {
-	items as u128 * 2 * DOLLARS + (bytes as u128) * 10 * MILLICENTS
-}
-
-/// Block number of one hour.
-pub const HOURS: u32 = 60;
-/// Block number of one day.
-pub const DAYS: u32 = 24 * HOURS;
