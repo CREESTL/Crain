@@ -38,7 +38,6 @@ pallet-sudo = { version = "4.0.0-dev", default-features = false, git = "https://
 pallet-nicks = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
 # Local Dependencies
 pallet-difficulty = { path = "../pallets/difficulty", default-features = false }
-pallet-template = { version = "4.0.0-dev", default-features = false, path = "../pallets/template" }
 
 # Used for the node template's RPCs
 frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.19" }
@@ -85,7 +84,6 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-randomness-collective-flip/std",
 	"pallet-sudo/std",
-	"pallet-template/std",
 	"pallet-nicks/std",
 
 	"pallet-difficulty/std",	
@@ -106,7 +104,6 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"hex-literal",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-template/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
